@@ -4,6 +4,8 @@ import { useCallback, useRef, useState } from 'react';
 import { Canvas } from './Canvas';
 import { Inspector } from './Inspector';
 import { Palette } from './Palette';
+import { Splitter } from './Splitter';
+import { PANEL_DEFAULTS, usePanelWidths } from './usePanelWidths';
 import {
   connect,
   createBlock,
@@ -42,6 +44,7 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const jsonRef = useRef<HTMLInputElement>(null);
+  const { widths, setLeft, setRight } = usePanelWidths();
 
   const say = useCallback((msg: string) => {
     setToast(msg);
@@ -161,8 +164,24 @@ export function App() {
         />
       </div>
 
-      <div className="body">
+      <div
+        className="body"
+        style={
+          {
+            '--left-panel': `${widths.left}px`,
+            '--right-panel': `${widths.right}px`,
+          } as React.CSSProperties
+        }
+      >
         <Palette onAdd={(typeId) => addBlock(typeId)} />
+
+        <Splitter
+          width={widths.left}
+          side="left"
+          onResize={setLeft}
+          defaultWidth={PANEL_DEFAULTS.left}
+          label="block palette"
+        />
 
         <Canvas
           key={doc.docId}
@@ -186,6 +205,14 @@ export function App() {
             touch();
           }}
           onDropBlock={(typeId, x, y) => addBlock(typeId, x, y)}
+        />
+
+        <Splitter
+          width={widths.right}
+          side="right"
+          onResize={setRight}
+          defaultWidth={PANEL_DEFAULTS.right}
+          label="block details"
         />
 
         <Inspector

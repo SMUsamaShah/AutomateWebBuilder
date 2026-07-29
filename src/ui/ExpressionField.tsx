@@ -43,6 +43,17 @@ export function ExpressionField({ label, value, onCommit }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rendered]);
 
+  // Grow to fit the value so long expressions are readable without scrolling.
+  // Capped so one field cannot fill the panel; the resize handle still works,
+  // and a manual height survives until the text changes again.
+  useEffect(() => {
+    const el = areaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const cap = Math.max(120, Math.round(window.innerHeight * 0.45));
+    el.style.height = `${Math.min(el.scrollHeight + 2, cap)}px`;
+  }, [text]);
+
   const commit = () => {
     if (!dirty) return;
     try {

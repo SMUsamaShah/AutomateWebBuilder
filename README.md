@@ -25,6 +25,8 @@ desktop, plus a readable JSON projection you can hand to an AI agent.
   is compiled back by a parser built from the app's own grammar, so lists, maps
   and operator trees survive editing instead of collapsing to text.
 - **JSON import/export** for reading or rewriting a flow with an AI agent.
+- **Resizable panels.** Drag either divider to trade canvas space for palette or
+  detail width; double-click a divider to reset it. Widths are remembered.
 
 ## What "byte-for-byte" means
 

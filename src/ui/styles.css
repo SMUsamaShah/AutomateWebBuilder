@@ -135,19 +135,47 @@ button {
 
 /* -------------------------------------------------------------------- body */
 
+/* Panel widths are driven by --left-panel / --right-panel, set from state. */
 .body {
   display: grid;
-  grid-template-columns: 264px 1fr 320px;
+  grid-template-columns: var(--left-panel, 264px) 6px 1fr 6px var(--right-panel, 340px);
   min-height: 0;
 }
 
-@media (max-width: 1100px) {
+/* Below this there is no room for three columns; drop the details panel. */
+@media (max-width: 860px) {
   .body {
-    grid-template-columns: 220px 1fr;
+    grid-template-columns: var(--left-panel, 220px) 6px 1fr;
   }
-  .inspector {
+  .inspector,
+  .body > .splitter:last-of-type {
     display: none;
   }
+}
+
+.splitter {
+  position: relative;
+  cursor: col-resize;
+  background: var(--panel-border);
+  touch-action: none;
+}
+
+/* Widen the grab area beyond the visible line without shifting the layout. */
+.splitter::after {
+  content: '';
+  position: absolute;
+  inset: 0 -4px;
+}
+
+.splitter:hover,
+.splitter:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .panel {
@@ -373,7 +401,9 @@ button {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   resize: vertical;
-  min-height: 54px;
+  min-height: 84px;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
 .field .note {
