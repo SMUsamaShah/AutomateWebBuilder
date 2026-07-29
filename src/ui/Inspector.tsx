@@ -1,21 +1,15 @@
 /**
  * Property editor for the selected block.
  *
- * Expression-valued fields are shown as their Automate source text. Editing one
- * replaces it with a string literal, which is what the app itself stores for a
- * plain text argument; fields left untouched keep their original nodes intact
- * so nothing is lost on save.
+ * Expression-valued fields are shown as their Automate source text and compiled
+ * back by the expression parser when committed, so structured values survive a
+ * round trip through the editor. Fields left untouched keep their original nodes
+ * byte-for-byte.
  */
 
 import { editableFields, fieldLabel } from '../flo/blocks';
-import {
-  isExpression,
-  isPrimitiveBox,
-  primitiveText,
-  renderExpression,
-  stringLiteral,
-  withPrimitiveText,
-} from '../flo/expr';
+import { isPrimitiveBox, primitiveText, withPrimitiveText } from '../flo/expr';
+import { ExpressionField } from './ExpressionField';
 import type { Block } from '../flo/model';
 
 interface Props {
@@ -83,27 +77,13 @@ export function Inspector({ block, onChange, onDelete }: Props) {
                 </div>
               );
             }
-
-            const text = isExpression(value) ? renderExpression(value as never) : '';
-            const unsupported = value != null && !isExpression(value);
             return (
-              <div className="field" key={f.name}>
-                <label>{fieldLabel(f.name)}</label>
-                <textarea
-                  value={text}
-                  disabled={unsupported}
-                  placeholder={unsupported ? '(complex value — edit in the app)' : 'expression'}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    onChange(block, f.name, next === '' ? null : stringLiteral(next));
-                  }}
-                />
-                <div className="note">
-                  {unsupported
-                    ? 'Preserved as-is on save.'
-                    : 'Saved as a text value. Existing expressions are kept unless you edit them.'}
-                </div>
-              </div>
+              <ExpressionField
+                key={`${block.id}:${f.name}`}
+                label={fieldLabel(f.name)}
+                value={value}
+                onCommit={(next) => onChange(block, f.name, next)}
+              />
             );
           }
 

@@ -20,8 +20,10 @@ desktop, plus a readable JSON projection you can hand to an AI agent.
   documentation links — searchable and grouped by category.
 - **The flowchart, as the app draws it.** Same grid, block shape, connector
   colours (IN/OK/YES/NO/FAIL/DO/NEW), and orthogonal connection routing.
-- **Expression display.** Arguments render as real Automate expression source —
-  `"Do you want to run BigOS " ++ versionbigos ++ " Setup?"`, not opaque blobs.
+- **Expression editing.** Arguments render as real Automate expression source —
+  `"Do you want to run BigOS " ++ versionbigos ++ " Setup?"` — and what you type
+  is compiled back by a parser built from the app's own grammar, so lists, maps
+  and operator trees survive editing instead of collapsing to text.
 - **JSON import/export** for reading or rewriting a flow with an AI agent.
 
 ## What "byte-for-byte" means
@@ -170,15 +172,29 @@ Each type's payload is a fixed field order gated by format version — the reaso
 the schema is generated rather than written by hand: several hundred types, each
 with its own accumulated version history.
 
+## Editing expressions
+
+An expression field shows Automate expression source and compiles it back when
+you commit (click away, or Ctrl/Cmd+Enter; Esc reverts). Three properties keep
+this safe:
+
+- **Typing never writes to the flow.** The text is local until committed, so
+  re-rendering cannot rewrite what you are typing.
+- **Invalid input is refused**, with the character offset, and the previous
+  value is kept.
+- **Reformatting is a no-op.** Whitespace and line breaks between tokens are
+  insignificant, so a long value can be laid out over several lines; if the
+  result parses to the same expression, the original node is kept and the saved
+  file stays byte-identical.
+
 ## Status and limits
 
-- Editing an expression field replaces it with a plain text value. Untouched
-  fields keep their original expression trees, so nothing is lost by opening and
-  saving a flow.
 - A few statement types with Android `Parcel` payloads (Tasker plug-ins, pinned
   shortcuts) are preserved verbatim but not editable here.
-- There is no expression *parser* yet, so typed-in expressions are stored as
-  text rather than compiled to an AST.
+- Editing an interpolated string resets the per-hole display flags the app
+  stores alongside it. Everything else about the value is preserved.
+- There is no undo. Reverting an uncommitted edit is Esc; beyond that, reopen
+  the file.
 
 ## Contributing
 

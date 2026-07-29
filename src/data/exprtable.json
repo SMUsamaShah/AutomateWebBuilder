@@ -70,8 +70,7 @@
   "op": "++"
  },
  "120": {
-  "kind": "binary",
-  "op": "?"
+  "kind": "ternary"
  },
  "121": {
   "kind": "binary",

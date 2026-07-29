@@ -11,6 +11,7 @@
  */
 
 import exprTableJson from '../data/exprtable.json';
+import { CONVERSION_TYPES } from './exprparse';
 import type { FloObject, FloValue } from './types';
 
 interface ExprRule {
@@ -65,6 +66,7 @@ export function quote(s: string): string {
     else if (ch === '\n') out += '\\n';
     else if (ch === '\r') out += '\\r';
     else if (ch === '\t') out += '\\t';
+    else if (ch === '{') out += '\\{';
     else out += ch;
   }
   return out + '"';
@@ -118,7 +120,8 @@ function renderNode(v: FloValue, depth: number): Rendered {
       return { text: bigintText(v), power: ATOM };
 
     case 'null':
-      return { text: '', power: ATOM };
+      // The app's own K3.I.w() prints "null"; only an absent field is empty.
+      return { text: 'null', power: ATOM };
 
     case 'const':
       return { text: rule.text ?? '', power: ATOM };
@@ -177,7 +180,13 @@ function renderNode(v: FloValue, depth: number): Rendered {
       const exprs = (v.exprs as FloValue[]) ?? [];
       let text = '"';
       for (let i = 0; i < strings.length; i++) {
-        text += strings[i].replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        text += strings[i]
+          .replace(/\\/g, '\\\\')
+          .replace(/"/g, '\\"')
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '\\r')
+          .replace(/\t/g, '\\t')
+          .replace(/\{/g, '\\{');
         if (i < exprs.length) text += `{${renderNode(exprs[i], depth + 1).text}}`;
       }
       return { text: text + '"', power: ATOM };
@@ -190,9 +199,11 @@ function renderNode(v: FloValue, depth: number): Rendered {
 
     case 'map': {
       const kv = (v.pairs as { _kv?: Array<[FloValue, FloValue, number]> })?._kv ?? [];
-      const parts = kv.map(
-        ([k, val]) => `${renderNode(k, depth + 1).text}: ${renderNode(val, depth + 1).text}`,
-      );
+      const parts = kv.map(([k, val, conv]) => {
+        const entry = `${renderNode(k, depth + 1).text}: ${renderNode(val, depth + 1).text}`;
+        const type = CONVERSION_TYPES[conv];
+        return type ? `${entry} as ${type}` : entry;
+      });
       return { text: `{${parts.join(', ')}}`, power: ATOM };
     }
 

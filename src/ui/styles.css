@@ -456,3 +456,11 @@ button {
   font-size: 12px;
   color: var(--muted);
 }
+
+.field textarea.invalid {
+  border-color: var(--red);
+}
+
+.field .note.error {
+  color: var(--red);
+}

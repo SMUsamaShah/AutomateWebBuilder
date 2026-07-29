@@ -50,6 +50,9 @@ def class_path(srcdir, fqcn):
 
 # `w()` body shapes we recognise, most specific first.
 PATTERNS = [
+    # Ternary: two chained appends, `cond ? a : b`. Must precede the binary
+    # pattern, whose regex also matches the first of the two calls.
+    ("ternary", re.compile(r'\.l\(this\.f\d+X, \w+, sb, " \? "\).*?\.l\(this\.f\d+Y, \w+, sb, " : "\)', re.S)),
     # Binary infix: C6.h.l(a, i8, sb, " OP "); ... e(b, ...)
     ("binary", re.compile(r'\.l\(this\.f\d+X, \w+, sb, "([^"]+)"\)')),
     # Parenthesised group: "(" + x.w(i8) + ")"
@@ -58,8 +61,6 @@ PATTERNS = [
     ("prefix", re.compile(r'return "([^"]{1,3})" \+ ')),
     # Prefix unary built through a seeded StringBuilder: new StringBuilder("OP")
     ("prefix", re.compile(r'new java\.lang\.StringBuilder\("([^"]{1,3})"\)')),
-    # Ternary conditional: a ? b : c
-    ("ternary", re.compile(r'" \? "')),
     # Function-style: I3.h.L(i8, l(), ...) — name comes from NAME constant
     ("func", re.compile(r"I3\.h\.L\(\w+, l\(\)")),
     # Named function with literal name
