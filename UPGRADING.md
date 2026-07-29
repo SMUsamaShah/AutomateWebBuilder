@@ -17,7 +17,7 @@ cp src/data/schema.json /tmp/schema-old.json
 # 3. Regenerate the three data files
 python3 tools/generate_schema.py    /tmp/apk-new/sources
 python3 tools/generate_exprtable.py /tmp/apk-new/sources
-npm run blocks -- --index                 # refresh docs/BLOCKS.md
+npm run blocks -- --write-index           # refresh docs/BLOCKS.md
 
 # 4. See exactly what the release changed on the wire
 python3 tools/diff_schema.py /tmp/schema-old.json src/data/schema.json
@@ -72,7 +72,7 @@ understands, which is how the diff tool detects the bump.
 | `src/data/catalog.json` | `tools/generate_schema.py` | `@E3.*` annotations plus `strings.xml`, `integers.xml`, `layout/block_*.xml` |
 | `src/data/exprtable.json` | `tools/generate_exprtable.py` | each expression node's `w(flags)` to-source method |
 | `public/fonts/AutomateIcons.ttf` | `scripts/extract-apk-assets.mjs` | `assets/fonts/AutomateIcons.ttf` (not redistributed) |
-| `docs/BLOCKS.md` | `npm run blocks -- --index` | the generated catalog above |
+| `docs/BLOCKS.md` | `npm run blocks -- --write-index` | the generated catalog above |
 
 The generators read the decompiled Java as text. That sounds fragile, but it is
 deliberately narrow: they only recognise the handful of mechanical shapes the

@@ -1,7 +1,7 @@
 # Block reference
 
 All 410 block types Automate supports, generated from the app itself by
-`tools/blocks.ts` (`npm run blocks -- --index`). Do not edit by hand.
+`tools/blocks.ts` (`npm run blocks -- --write-index`). Do not edit by hand.
 
 The **id** is what `createBlock(model, id, x, y)` takes. For a block's ports and
 argument names — which you need before setting anything — run:

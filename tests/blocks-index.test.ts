@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { buildIndex } from '../tools/blocks';
 import { catalog } from '../src/flo/model';
@@ -15,7 +16,7 @@ describe('docs/BLOCKS.md', () => {
     const onDisk = readFileSync(join(__dirname, '../docs/BLOCKS.md'), 'utf8');
     expect(
       onDisk,
-      'docs/BLOCKS.md is stale — regenerate with `npm run blocks -- --index`',
+      'docs/BLOCKS.md is stale — regenerate with `npm run blocks -- --write-index`',
     ).toBe(buildIndex());
   });
 
@@ -24,6 +25,26 @@ describe('docs/BLOCKS.md', () => {
     for (const [tid, entry] of Object.entries(catalog)) {
       const rows = index.split('\n').filter((l) => l.startsWith(`| ${tid} |`));
       expect(rows, `block ${tid} (${entry.name}) missing from the index`).toHaveLength(1);
+    }
+  });
+});
+
+describe('block discovery CLI', () => {
+  it('lists every block in --all output', () => {
+    // The listing is what an agent falls back to when a keyword search misses,
+    // so a block missing from it is effectively invisible.
+    const listed = new Set(
+      execFileSync('npx', ['tsx', 'tools/blocks.ts', '--all'], {
+        cwd: join(__dirname, '..'),
+        encoding: 'utf8',
+        maxBuffer: 8 * 1024 * 1024,
+      })
+        .split('\n')
+        .map((l) => l.trim().split(/\s+/)[0])
+        .filter((t) => /^\d+$/.test(t)),
+    );
+    for (const tid of Object.keys(catalog)) {
+      expect(listed.has(tid), `block ${tid} missing from --all`).toBe(true);
     }
   });
 });

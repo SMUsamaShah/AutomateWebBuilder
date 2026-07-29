@@ -30,7 +30,7 @@ FLO_FIXTURES=/dir/with/flo/files npm test
 npm run dev            # editor with hot reload
 npm test               # full suite (fixture tests skip without FLO_FIXTURES)
 npm run explain -- f.flo   # execution-order walkthrough of a flow
-npm run blocks -- wifi     # find a block type; --index regenerates docs/BLOCKS.md
+npm run blocks -- wifi     # find a block type (--all lists every one)
 npm run build          # static site -> dist/
 npm run build:single   # one self-contained dist/automate-web-builder.html
 ```

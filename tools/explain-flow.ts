@@ -18,6 +18,13 @@ import { describeBlock, editableFields, outputPorts } from '../src/flo/blocks';
 import { isExpression, renderExpression } from '../src/flo/expr';
 import type { Block, FlowModel } from '../src/flo/model';
 
+// Piping into `head` or `grep -m` closes stdout early; exit quietly instead of
+// crashing with an unhandled EPIPE.
+process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') process.exit(0);
+  throw err;
+});
+
 const args = process.argv.slice(2);
 const path = args.find((a) => !a.startsWith('--'));
 const asJson = args.includes('--json');
@@ -128,9 +135,17 @@ function variableUse(m: FlowModel) {
   const written = new Set<string>();
   const read = new Set<string>();
 
+  // Expression trees are small, but a statement's fields point at the *next*
+  // statement, and those chains loop. Walking into them overflows the stack on a
+  // large flow, so stop at statement boundaries (the outer loop visits every
+  // block anyway) and guard against shared subtrees.
+  const seen = new WeakSet<object>();
   const collectReads = (v: unknown, into: Set<string>) => {
     if (!v || typeof v !== 'object') return;
+    if (seen.has(v)) return;
+    seen.add(v);
     const o = v as { _type?: number; [k: string]: unknown };
+    if ((o._type ?? 0) >= 1000) return; // a statement, not an expression
     if (o._type === 102) into.add(String(o.f4289X));
     for (const val of Object.values(o)) {
       if (Array.isArray(val)) val.forEach((x) => collectReads(x, into));

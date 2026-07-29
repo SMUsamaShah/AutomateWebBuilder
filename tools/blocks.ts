@@ -1,10 +1,11 @@
 /**
  * Discover block types.
  *
- *   npm run blocks                  # category overview
- *   npm run blocks -- wifi          # search name, title and summary
- *   npm run blocks -- --id 1046     # everything about one block
- *   npm run blocks -- --index       # regenerate docs/BLOCKS.md
+ *   npm run blocks                    # category overview
+ *   npm run blocks -- wifi            # search name, title and summary
+ *   npm run blocks -- --all           # print every block type
+ *   npm run blocks -- --id 1046       # everything about one block
+ *   npm run blocks -- --write-index   # regenerate docs/BLOCKS.md
  *
  * An agent editing a flow needs to answer "which block turns Wi-Fi on, and what
  * are its arguments called?" without reading 400 classes. Search covers that
@@ -18,6 +19,13 @@ import { fileURLToPath } from 'node:url';
 import { catalog } from '../src/flo/model';
 import { blockCategory, categories, editableFields, outputPorts } from '../src/flo/blocks';
 import type { CatalogEntry } from '../src/flo/types';
+
+// Piping into `head` or `grep -m` closes stdout early; exit quietly instead of
+// crashing with an unhandled EPIPE.
+process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') process.exit(0);
+  throw err;
+});
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const all = Object.values(catalog) as CatalogEntry[];
@@ -71,7 +79,7 @@ export function buildIndex(): string {
     '# Block reference',
     '',
     `All ${all.length} block types Automate supports, generated from the app itself by`,
-    '`tools/blocks.ts` (`npm run blocks -- --index`). Do not edit by hand.',
+    '`tools/blocks.ts` (`npm run blocks -- --write-index`). Do not edit by hand.',
     '',
     'The **id** is what `createBlock(model, id, x, y)` takes. For a block\'s ports and',
     'argument names — which you need before setting anything — run:',
@@ -102,10 +110,26 @@ export function buildIndex(): string {
 function main(): void {
   const args = process.argv.slice(2);
 
-  if (args.includes('--index')) {
+  if (args.includes('--write-index')) {
     const out = join(REPO, 'docs/BLOCKS.md');
     writeFileSync(out, buildIndex());
     console.log(`wrote ${out} (${all.length} blocks)`);
+    return;
+  }
+
+  // Print the whole vocabulary. Terse on purpose: `--id` or a search gives the
+  // ports and arguments for whichever block turns out to be the interesting one.
+  if (args.includes('--all')) {
+    const groups = byCategory();
+    for (const cat of categories()) {
+      const list = groups.get(cat);
+      if (!list?.length) continue;
+      console.log(`\n${cat} (${list.length})`);
+      for (const e of list) {
+        console.log(`  ${String(e.id).padEnd(5)} ${e.name.padEnd(34)} ${e.title ?? ''}`);
+      }
+    }
+    console.log(`\n${all.length} blocks. Details: npm run blocks -- --id <id>`);
     return;
   }
 
@@ -129,15 +153,21 @@ function main(): void {
       const list = groups.get(cat);
       if (list?.length) console.log(`  ${String(list.length).padStart(3)}  ${cat}`);
     }
-    console.log('\nSearch:            npm run blocks -- wifi');
-    console.log('One block:         npm run blocks -- --id 1046');
-    console.log('Complete listing:  docs/BLOCKS.md');
+    console.log('\nThis is only an overview. To list every block type:');
+    console.log('  npm run blocks -- --all          print all 410 here');
+    console.log('  docs/BLOCKS.md                   the same list, with descriptions');
+    console.log('\nOr go straight to one block:');
+    console.log('  npm run blocks -- wifi           search name, title, description');
+    console.log('  npm run blocks -- --id 1046      its ports and arguments');
     return;
   }
 
   const hits = search(query);
   if (!hits.length) {
-    console.log(`nothing matches "${query}". Try a broader word, or see docs/BLOCKS.md.`);
+    console.log(
+      `nothing matches "${query}". Try a broader word, ` +
+        'or list everything with: npm run blocks -- --all',
+    );
     return;
   }
   console.log(`${hits.length} match(es) for "${query}":\n`);

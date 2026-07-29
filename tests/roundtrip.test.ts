@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { CURRENT_VERSION, parseFlo, writeFlo } from '../src/flo/codec';
 import { createBlock, emptyModel, fromModel, toModel, connect } from '../src/flo/model';
@@ -148,4 +149,22 @@ describe('format version handling', () => {
     model.version = 85;
     expect(parseFlo(fromModel(model)).version).toBe(85);
   });
+});
+
+describe('flow analysis', () => {
+  const files = fixtureFiles();
+  const maybe = files.length ? it : it.skip;
+
+  maybe('analyses every fixture without exhausting the stack', () => {
+    // A statement's fields point at the next statement and those chains loop, so
+    // a naive walk overflows on a large flow. Small fixtures hide this.
+    for (const path of files) {
+      const out = execFileSync('npx', ['tsx', 'tools/explain-flow.ts', path], {
+        cwd: join(__dirname, '..'),
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      });
+      expect(out, `${path} produced no trace`).toMatch(/Entry points \(\d+\)/);
+    }
+  }, 60_000);
 });

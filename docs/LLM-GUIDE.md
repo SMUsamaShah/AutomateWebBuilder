@@ -150,6 +150,7 @@ and the reliable answer to "what can Automate even do?".
 
 ```bash
 npm run blocks                    # category overview with counts
+npm run blocks -- --all           # print every block type
 npm run blocks -- --id 1046       # ports and arguments of one block
 ```
 
