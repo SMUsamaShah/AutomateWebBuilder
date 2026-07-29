@@ -76,6 +76,9 @@ npm run build:single     # -> dist/automate-web-builder.html
 
 **2. Static hosting.** `npm run build` produces a plain `dist/` of HTML, JS and
 CSS. Drop it on GitHub Pages, Netlify, or any web server. There is no backend.
+This repository ships a workflow (`.github/workflows/pages.yml`) that typechecks,
+tests and publishes to GitHub Pages on every push to the default branch — enable
+Pages with "GitHub Actions" as the source and it deploys itself.
 
 **3. Development.** `npm install && npm run dev` for hot reloading while working
 on the code.
@@ -87,14 +90,19 @@ all parsing and writing happens in the browser.
 ### Block icons
 
 The block glyphs come from LlamaLab's icon font, which is **not** redistributed
-here. Supply your own copy of the APK to install it locally:
+here — so a hosted build, including the GitHub Pages one, draws each block's
+initials instead. Everything works; the icons are just letters.
+
+To get the real icons, supply your own copy of the APK and build locally:
 
 ```bash
 node scripts/extract-apk-assets.mjs path/to/automate.apk
+npm run dev          # or: npm run build:single, which embeds the font
 ```
 
-Without it the editor falls back to drawing each block's initials, so it is fully
-usable either way.
+The editor detects at runtime whether the font actually loaded, because its
+glyphs sit in the Unicode Private Use Area and would otherwise render as blank
+space rather than as anything recognisable.
 
 ## Editing a flow with an AI agent
 

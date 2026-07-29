@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { catalog } from '../flo/model';
 import { blockCategory, categories } from '../flo/blocks';
+import { initials, useIconFont } from './iconFont';
 import type { CatalogEntry } from '../flo/types';
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 
 export function Palette({ onAdd }: Props) {
   const [query, setQuery] = useState('');
+  const hasFont = useIconFont();
 
   const grouped = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -57,8 +59,19 @@ export function Palette({ onAdd }: Props) {
                 onClick={() => onAdd(entry.id)}
                 title={entry.summary ?? ''}
               >
-                <span className="icon" style={{ fontFamily: 'AutomateIcons', fontSize: 16, width: 20 }}>
-                  {entry.icon ? String.fromCharCode(entry.icon) : '•'}
+                <span
+                  className={hasFont ? 'icon' : 'icon fallback'}
+                  style={{
+                    fontFamily: hasFont ? 'AutomateIcons' : 'inherit',
+                    fontSize: hasFont ? 16 : 10,
+                    fontWeight: hasFont ? 400 : 700,
+                    width: 22,
+                    flex: '0 0 22px',
+                    textAlign: 'center',
+                    color: 'var(--muted)',
+                  }}
+                >
+                  {hasFont && entry.icon ? String.fromCharCode(entry.icon) : initials(entry.name)}
                 </span>
                 <span className="label">{entry.title ?? entry.name}</span>
               </button>

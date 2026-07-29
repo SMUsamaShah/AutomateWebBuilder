@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { describeBlock, hasInputPort, outputPorts, COLORS } from '../flo/blocks';
+import { initials, useIconFont } from './iconFont';
 import type { Block } from '../flo/model';
 
 export const CELL = 24;
@@ -18,13 +19,6 @@ interface Props {
   onInputClick: (e: React.MouseEvent, block: Block) => void;
 }
 
-/** Two-letter fallback used when the original icon font is not installed. */
-function initials(name: string): string {
-  const words = name.replace(/([a-z])([A-Z])/g, '$1 $2').split(/\s+/);
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
-}
-
 function BlockViewImpl({
   block,
   selected,
@@ -35,7 +29,8 @@ function BlockViewImpl({
 }: Props) {
   const entry = block.entry;
   const caption = describeBlock(block.raw, entry);
-  const glyph = entry?.icon ? String.fromCharCode(entry.icon) : null;
+  const hasFont = useIconFont();
+  const glyph = hasFont && entry?.icon ? String.fromCharCode(entry.icon) : null;
 
   return (
     <div

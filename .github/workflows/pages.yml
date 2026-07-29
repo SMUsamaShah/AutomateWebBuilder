@@ -1,0 +1,71 @@
+# Builds the editor and publishes it to GitHub Pages.
+#
+# Two artefacts are published together:
+#   /                            the editor
+#   /automate-web-builder.html   the same editor as one self-contained file
+#
+# Note: the block icon font is LlamaLab's and is not in this repository, so the
+# published site draws block initials instead of icons. Anyone who wants the
+# real icons runs `node scripts/extract-apk-assets.mjs <automate.apk>` against
+# their own copy of the APK and builds locally.
+name: Pages
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build site
+        run: npm run build
+
+      - name: Build single-file edition
+        run: npm run build:single
+
+      - name: Upload Pages artifact
+        # Only the default branch produces something to deploy; pull requests
+        # stop after the checks above.
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
