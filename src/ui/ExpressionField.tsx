@@ -54,16 +54,42 @@ export function ExpressionField({ label, value, onCommit }: Props) {
     el.style.height = `${Math.min(el.scrollHeight + 2, cap)}px`;
   }, [text]);
 
+  // Clicking the canvas changes the selection, and React flushes that on
+  // pointerdown — before the browser moves focus. The field is unmounted by the
+  // time `blur` fires, so blur alone would silently drop the edit. Commit from
+  // an unmount cleanup as well, reading the latest values through a ref.
+  const pending = useRef({ text, dirty, rendered, onCommit });
+  pending.current = { text, dirty, rendered, onCommit };
+
+  useEffect(
+    () => () => {
+      const p = pending.current;
+      if (!p.dirty) return;
+      try {
+        const parsed = parseExpression(p.text);
+        if (renderExpression(parsed) !== p.rendered) p.onCommit(parsed);
+      } catch {
+        // Invalid and no longer on screen: leave the stored value untouched.
+      }
+    },
+    [],
+  );
+
+  // Both paths read `pending`, never the render closure: Esc and blur can happen
+  // in the same tick, before React has applied the state, and a stale closure
+  // would then re-commit text the user just discarded.
   const commit = () => {
-    if (!dirty) return;
+    const p = pending.current;
+    if (!p.dirty) return;
     try {
-      const parsed = parseExpression(text);
+      const parsed = parseExpression(p.text);
+      pending.current = { ...p, dirty: false };
       setError(null);
       setDirty(false);
       // Reformatting only (whitespace, layout) must not touch the flow at all:
       // keeping the original node preserves anything the parser cannot express,
       // and keeps the saved file byte-identical.
-      if (renderExpression(parsed) !== rendered) onCommit(parsed);
+      if (renderExpression(parsed) !== p.rendered) p.onCommit(parsed);
     } catch (err) {
       // Keep the text so the mistake can be corrected; the flow is unchanged.
       setError(
@@ -75,6 +101,7 @@ export function ExpressionField({ label, value, onCommit }: Props) {
   };
 
   const revert = () => {
+    pending.current = { ...pending.current, text: rendered, dirty: false };
     setText(rendered);
     setError(null);
     setDirty(false);
