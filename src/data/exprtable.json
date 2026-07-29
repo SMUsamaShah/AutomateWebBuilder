@@ -1,0 +1,585 @@
+{
+ "100": {
+  "kind": "number"
+ },
+ "101": {
+  "kind": "number"
+ },
+ "102": {
+  "kind": "var"
+ },
+ "103": {
+  "kind": "null"
+ },
+ "104": {
+  "kind": "number"
+ },
+ "105": {
+  "kind": "interp"
+ },
+ "106": {
+  "kind": "string"
+ },
+ "107": {
+  "kind": "bigint"
+ },
+ "108": {
+  "kind": "bigint"
+ },
+ "109": {
+  "kind": "bigint"
+ },
+ "110": {
+  "kind": "binary",
+  "op": "+"
+ },
+ "111": {
+  "kind": "binary",
+  "op": "&&"
+ },
+ "112": {
+  "kind": "binary",
+  "op": "&"
+ },
+ "113": {
+  "kind": "prefix",
+  "op": "~"
+ },
+ "114": {
+  "kind": "binary",
+  "op": "<<"
+ },
+ "115": {
+  "kind": "binary",
+  "op": ">>"
+ },
+ "116": {
+  "kind": "binary",
+  "op": ">>>"
+ },
+ "117": {
+  "kind": "binary",
+  "op": "|"
+ },
+ "118": {
+  "kind": "binary",
+  "op": "^"
+ },
+ "119": {
+  "kind": "binary",
+  "op": "++"
+ },
+ "120": {
+  "kind": "binary",
+  "op": "?"
+ },
+ "121": {
+  "kind": "binary",
+  "op": "/"
+ },
+ "122": {
+  "kind": "binary",
+  "op": "="
+ },
+ "123": {
+  "kind": "binary",
+  "op": ">="
+ },
+ "124": {
+  "kind": "binary",
+  "op": ">"
+ },
+ "125": {
+  "kind": "group"
+ },
+ "126": {
+  "kind": "prefix",
+  "op": "#"
+ },
+ "127": {
+  "kind": "binary",
+  "op": "<="
+ },
+ "128": {
+  "kind": "binary",
+  "op": "<"
+ },
+ "129": {
+  "kind": "binary",
+  "op": "%"
+ },
+ "130": {
+  "kind": "binary",
+  "op": "*"
+ },
+ "131": {
+  "kind": "prefix",
+  "op": "-"
+ },
+ "132": {
+  "kind": "list"
+ },
+ "133": {
+  "kind": "map"
+ },
+ "134": {
+  "kind": "prefix",
+  "op": "!"
+ },
+ "135": {
+  "kind": "binary",
+  "op": "!="
+ },
+ "136": {
+  "kind": "binary",
+  "op": "||"
+ },
+ "137": {
+  "kind": "binary",
+  "op": "["
+ },
+ "138": {
+  "kind": "binary",
+  "op": "-"
+ },
+ "139": {
+  "kind": "prefix",
+  "op": "+"
+ },
+ "140": {
+  "kind": "prefix",
+  "op": "++"
+ },
+ "141": {
+  "kind": "binary",
+  "op": "//"
+ },
+ "200": {
+  "kind": "const",
+  "text": "Infinity"
+ },
+ "201": {
+  "kind": "const",
+  "text": "NaN"
+ },
+ "202": {
+  "kind": "const",
+  "text": "Now"
+ },
+ "203": {
+  "kind": "const",
+  "text": "Pi"
+ },
+ "300": {
+  "kind": "func",
+  "name": "abs"
+ },
+ "301": {
+  "kind": "func",
+  "name": "acos"
+ },
+ "302": {
+  "kind": "func",
+  "name": "asin"
+ },
+ "303": {
+  "kind": "func",
+  "name": "atan"
+ },
+ "304": {
+  "kind": "func",
+  "name": "atan2"
+ },
+ "305": {
+  "kind": "func",
+  "name": "ceil"
+ },
+ "306": {
+  "kind": "func",
+  "name": "contains"
+ },
+ "307": {
+  "kind": "func",
+  "name": "coordFormat"
+ },
+ "308": {
+  "kind": "func",
+  "name": "cos"
+ },
+ "309": {
+  "kind": "func",
+  "name": "dateFormat"
+ },
+ "310": {
+  "kind": "func",
+  "name": "dateParts"
+ },
+ "311": {
+  "kind": "func",
+  "name": "distance"
+ },
+ "312": {
+  "kind": "func",
+  "name": "phoneq"
+ },
+ "313": {
+  "kind": "func",
+  "name": "exp"
+ },
+ "314": {
+  "kind": "func",
+  "name": "floor"
+ },
+ "315": {
+  "kind": "func",
+  "name": "jsonDecode"
+ },
+ "316": {
+  "kind": "func",
+  "name": "jsonEncode"
+ },
+ "317": {
+  "kind": "func",
+  "name": "join"
+ },
+ "318": {
+  "kind": "func",
+  "name": "localTime"
+ },
+ "319": {
+  "kind": "func",
+  "name": "log"
+ },
+ "320": {
+  "kind": "func",
+  "name": "lowerCase"
+ },
+ "321": {
+  "kind": "func",
+  "name": "date"
+ },
+ "322": {
+  "kind": "func",
+  "name": "matches"
+ },
+ "323": {
+  "kind": "func",
+  "name": "max"
+ },
+ "324": {
+  "kind": "func",
+  "name": "timeMerge"
+ },
+ "325": {
+  "kind": "func",
+  "name": "mimeType"
+ },
+ "326": {
+  "kind": "func",
+  "name": "min"
+ },
+ "327": {
+  "kind": "func",
+  "name": "numberFormat"
+ },
+ "328": {
+  "kind": "func",
+  "name": "pow"
+ },
+ "329": {
+  "kind": "func",
+  "name": "replaceAll"
+ },
+ "330": {
+  "kind": "func",
+  "name": "round"
+ },
+ "331": {
+  "kind": "func",
+  "name": "sift"
+ },
+ "332": {
+  "kind": "func",
+  "name": "sin"
+ },
+ "333": {
+  "kind": "func",
+  "name": "split"
+ },
+ "334": {
+  "kind": "func",
+  "name": "sqrt"
+ },
+ "335": {
+  "kind": "func",
+  "name": "tan"
+ },
+ "336": {
+  "kind": "func",
+  "name": "trim"
+ },
+ "337": {
+  "kind": "func",
+  "name": "trunc"
+ },
+ "338": {
+  "kind": "func",
+  "name": "upperCase"
+ },
+ "339": {
+  "kind": "func",
+  "name": "urlEncode"
+ },
+ "340": {
+  "kind": "func",
+  "name": "utcTime"
+ },
+ "341": {
+  "kind": "func",
+  "name": "cliEncode"
+ },
+ "342": {
+  "kind": "func",
+  "name": "glob"
+ },
+ "343": {
+  "kind": "func",
+  "name": "keys"
+ },
+ "344": {
+  "kind": "func",
+  "name": "shuffle"
+ },
+ "345": {
+  "kind": "func",
+  "name": "durationFormat"
+ },
+ "346": {
+  "kind": "func",
+  "name": "substr"
+ },
+ "347": {
+  "kind": "func",
+  "name": "storage"
+ },
+ "348": {
+  "kind": "func",
+  "name": "copy"
+ },
+ "349": {
+  "kind": "func",
+  "name": "random"
+ },
+ "350": {
+  "kind": "func",
+  "name": "hexEncode"
+ },
+ "351": {
+  "kind": "func",
+  "name": "char"
+ },
+ "352": {
+  "kind": "func",
+  "name": "urlDecode"
+ },
+ "353": {
+  "kind": "func",
+  "name": "bearing"
+ },
+ "354": {
+  "kind": "func",
+  "name": "celsius"
+ },
+ "355": {
+  "kind": "func",
+  "name": "fahrenheit"
+ },
+ "356": {
+  "kind": "func",
+  "name": "type"
+ },
+ "357": {
+  "kind": "func",
+  "name": "xmlDecode"
+ },
+ "358": {
+  "kind": "func",
+  "name": "xmlEncode"
+ },
+ "359": {
+  "kind": "func",
+  "name": "base64Decode"
+ },
+ "360": {
+  "kind": "func",
+  "name": "base64Encode"
+ },
+ "361": {
+  "kind": "func",
+  "name": "hexDecode"
+ },
+ "362": {
+  "kind": "func",
+  "name": "sum"
+ },
+ "363": {
+  "kind": "func",
+  "name": "ctz"
+ },
+ "364": {
+  "kind": "func",
+  "name": "values"
+ },
+ "365": {
+  "kind": "func",
+  "name": "declination"
+ },
+ "366": {
+  "kind": "func",
+  "name": "dateParse"
+ },
+ "367": {
+  "kind": "func",
+  "name": "filter"
+ },
+ "368": {
+  "kind": "func",
+  "name": "concat"
+ },
+ "369": {
+  "kind": "func",
+  "name": "extend"
+ },
+ "370": {
+  "kind": "func",
+  "name": "intersect"
+ },
+ "371": {
+  "kind": "func",
+  "name": "sort"
+ },
+ "372": {
+  "kind": "func",
+  "name": "time"
+ },
+ "373": {
+  "kind": "func",
+  "name": "disjoint"
+ },
+ "374": {
+  "kind": "func",
+  "name": "phoneFormat"
+ },
+ "375": {
+  "kind": "func",
+  "name": "reverse"
+ },
+ "376": {
+  "kind": "func",
+  "name": "distinct"
+ },
+ "377": {
+  "kind": "func",
+  "name": "levenshtein"
+ },
+ "378": {
+  "kind": "func",
+  "name": "crc32"
+ },
+ "379": {
+  "kind": "func",
+  "name": "md5"
+ },
+ "380": {
+  "kind": "func",
+  "name": "sha1"
+ },
+ "381": {
+  "kind": "func",
+  "name": "sqlEncode"
+ },
+ "382": {
+  "kind": "func",
+  "name": "indexOf"
+ },
+ "383": {
+  "kind": "func",
+  "name": "slice"
+ },
+ "384": {
+  "kind": "func",
+  "name": "findAll"
+ },
+ "385": {
+  "kind": "func",
+  "name": "vercmp"
+ },
+ "386": {
+  "kind": "func",
+  "name": "colorRecode"
+ },
+ "387": {
+  "kind": "func",
+  "name": "timePart"
+ },
+ "388": {
+  "kind": "func",
+  "name": "convType"
+ },
+ "389": {
+  "kind": "func",
+  "name": "clock"
+ },
+ "390": {
+  "kind": "func",
+  "name": "except"
+ },
+ "391": {
+  "kind": "func",
+  "name": "union"
+ },
+ "392": {
+  "kind": "func",
+  "name": "fileUri"
+ },
+ "393": {
+  "kind": "func",
+  "name": "sha256"
+ },
+ "394": {
+  "kind": "func",
+  "name": "xpathEncode"
+ },
+ "395": {
+  "kind": "func",
+  "name": "sizeFormat"
+ },
+ "396": {
+  "kind": "func",
+  "name": "uuid4"
+ },
+ "397": {
+  "kind": "func",
+  "name": "coalesce"
+ },
+ "398": {
+  "kind": "func",
+  "name": "undead"
+ },
+ "399": {
+  "kind": "func",
+  "name": "unorm"
+ },
+ "400": {
+  "kind": "func",
+  "name": "associate"
+ },
+ "401": {
+  "kind": "func",
+  "name": "bigint"
+ },
+ "402": {
+  "kind": "func",
+  "name": "runtime"
+ }
+}

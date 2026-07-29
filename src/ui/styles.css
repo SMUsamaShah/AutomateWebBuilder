@@ -1,0 +1,458 @@
+/* Palette and metrics mirror the Automate app's flowchart rendering. */
+:root {
+  --blue: #218ae6;
+  --green: #42a24a;
+  --red: #e63931;
+  --orange: #ef8a00;
+  --purple: #9c27b0;
+
+  --block-fill: #efebef;
+  --ink: #211c21;
+
+  --bg: #ffffff;
+  --panel: #fafafa;
+  --panel-border: #e2e0e2;
+  --muted: #6d686d;
+  --accent: #218ae6;
+
+  --cell: 24px;
+  --block-w: 96px;
+  --block-h: 72px;
+  --port: 22px;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --block-fill: #2b2a2d;
+    --ink: #ecebee;
+    --bg: #17161a;
+    --panel: #1e1d21;
+    --panel-border: #34323a;
+    --muted: #9c98a4;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Roboto, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+/* The original icon font, if the user extracted it from their APK. */
+@font-face {
+  font-family: 'AutomateIcons';
+  src: url('/fonts/AutomateIcons.ttf') format('truetype');
+  font-display: block;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100%;
+}
+
+/* ------------------------------------------------------------------ toolbar */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+  flex-wrap: wrap;
+}
+
+.toolbar .title {
+  font-weight: 600;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.toolbar .flow-name {
+  font-weight: 500;
+  color: var(--muted);
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbar .spacer {
+  flex: 1;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--bg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  border-color: var(--accent);
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* -------------------------------------------------------------------- body */
+
+.body {
+  display: grid;
+  grid-template-columns: 264px 1fr 320px;
+  min-height: 0;
+}
+
+@media (max-width: 1100px) {
+  .body {
+    grid-template-columns: 220px 1fr;
+  }
+  .inspector {
+    display: none;
+  }
+}
+
+.panel {
+  background: var(--panel);
+  border-right: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.inspector {
+  border-right: none;
+  border-left: 1px solid var(--panel-border);
+}
+
+.panel h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0;
+  padding: 12px 12px 8px;
+}
+
+.panel .scroll {
+  overflow-y: auto;
+  padding: 0 8px 16px;
+  flex: 1;
+}
+
+.search {
+  margin: 0 12px 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: inherit;
+  width: calc(100% - 24px);
+}
+
+.cat {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 12px 4px 4px;
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: grab;
+  text-align: left;
+}
+
+.palette-item:hover {
+  background: rgba(33, 138, 230, 0.12);
+}
+
+.palette-item .label {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ canvas */
+
+.canvas {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--grid-dot, rgba(0, 0, 0, 0.13)) 1px, transparent 1px);
+  cursor: grab;
+  min-height: 0;
+}
+
+.canvas.panning {
+  cursor: grabbing;
+}
+
+.world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------- block */
+
+.block {
+  position: absolute;
+  width: var(--block-w);
+  height: var(--block-h);
+  border-radius: 4px;
+  background: var(--block-fill);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 12px 4px 10px;
+  cursor: move;
+  user-select: none;
+}
+
+.block.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.block .icon {
+  font-family: 'AutomateIcons', sans-serif;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.block .icon.fallback {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.block .caption {
+  font-size: 8.5px;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--ink);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.block .badge {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 8px;
+  color: var(--muted);
+}
+
+/* Connector dots, sized and coloured like the app's ConnectorView. */
+.port {
+  position: absolute;
+  width: var(--port);
+  height: var(--port);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7.5px;
+  font-weight: 700;
+  color: #fff;
+  cursor: crosshair;
+  border: 2px solid var(--bg);
+}
+
+.port.top {
+  top: calc(var(--port) / -2);
+  left: calc(50% - var(--port) / 2);
+}
+
+.port.bottom {
+  bottom: calc(var(--port) / -2);
+  left: calc(50% - var(--port) / 2);
+}
+
+.port.right {
+  right: calc(var(--port) / -2);
+  top: calc(50% - var(--port) / 2);
+}
+
+.port.armed {
+  box-shadow: 0 0 0 3px rgba(33, 138, 230, 0.5);
+}
+
+/* --------------------------------------------------------------- inspector */
+
+.field {
+  margin: 10px 12px;
+}
+
+.field label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+}
+
+.field textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  resize: vertical;
+  min-height: 54px;
+}
+
+.field .note {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.block-head {
+  padding: 12px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.block-head .name {
+  font-weight: 600;
+}
+
+.block-head .summary {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.block-head a {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.empty {
+  padding: 24px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--bg);
+  padding: 9px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 40;
+  max-width: 80vw;
+}
+
+.zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 4px;
+}
+
+.zoom button {
+  width: 30px;
+  height: 28px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.zoom button:hover {
+  background: rgba(33, 138, 230, 0.14);
+}
+
+.zoom .level {
+  min-width: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--muted);
+}

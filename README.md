@@ -1,0 +1,154 @@
+# Automate Web Builder
+
+A browser-based editor for [LlamaLab Automate](https://llamalab.com/automate/) flows.
+Open a `.flo` file, edit it on a real screen with a mouse and a keyboard, and save it
+back in a format the app loads without complaint.
+
+Building flows on a phone works, but editing one — tapping tiny blocks, retyping
+expressions in a cramped dialog — does not. This gives the same flowchart on a
+desktop, plus a readable JSON projection you can hand to an AI agent.
+
+> Unofficial and not affiliated with LlamaLab. It reads and writes the `.flo`
+> format; it does not run flows.
+
+## What works
+
+- **Open and save `.flo` files.** The binary format is implemented from the app's
+  own serialization code, including its per-version field gates, so files from
+  older Automate versions load correctly and files you save are byte-compatible.
+- **All 410 block types**, with the app's own titles, summaries, icons, and
+  documentation links — searchable and grouped by category.
+- **The flowchart, as the app draws it.** Same grid, block shape, connector
+  colours (IN/OK/YES/NO/FAIL/DO/NEW), and curved connections.
+- **Expression display.** Arguments render as real Automate expression source —
+  `"Do you want to run BigOS " ++ versionbigos ++ " Setup?"`, not opaque blobs.
+- **JSON import/export** for reading or rewriting a flow with an AI agent.
+
+## Fidelity
+
+The format was reverse-engineered from `com.llamalab.automate` 1.51.1262 by
+decompiling the APK and reading its `z0`/`S` (read/write) methods directly, then
+generating the wire schema from them rather than transcribing it by hand.
+
+The test suite's central claim is **byte-exact round-tripping**: a `.flo` that is
+parsed and re-serialized must reproduce the original file exactly. That is the
+only real proof the schema is right — a near-miss would produce a file the app
+either rejects or, worse, silently misreads.
+
+This was verified against real flows of 21, 43, 343 and 1243 blocks spanning
+format versions 84, 85 and 112, all byte-identical after a round trip.
+
+To run it against your own flows:
+
+```bash
+FLO_FIXTURES=/path/to/your/flows npm test
+```
+
+## Getting started
+
+```bash
+npm install
+npm run dev
+```
+
+Then open the printed URL. `npm run build` produces a static `dist/` you can host
+anywhere — there is no server component and files never leave your machine.
+
+### Block icons
+
+The block glyphs come from LlamaLab's icon font, which is **not** redistributed
+here. Supply your own copy of the APK to install it locally:
+
+```bash
+node scripts/extract-apk-assets.mjs path/to/automate.apk
+```
+
+Without it the editor falls back to drawing each block's initials, so it is fully
+usable either way.
+
+## Editing a flow with an AI agent
+
+**Export JSON** turns the flow into a flat, readable document:
+
+```json
+{
+  "format": "automate-web-builder/flow@1",
+  "version": 112,
+  "blocks": [
+    {
+      "id": "71",
+      "type": "Delay",
+      "typeId": 1046,
+      "title": "Delay",
+      "x": -35, "y": 51,
+      "args": { "duration": "3" },
+      "next": { "onComplete": "2" }
+    }
+  ]
+}
+```
+
+Ask an agent to modify it, then **Import JSON** and save as `.flo`.
+
+Importing is deliberately lossy: blocks, positions, connections and simple
+argument values survive, but arguments that were complex expression trees come
+back as text values. Round-tripping through `.flo` (not JSON) is always lossless.
+
+## How it works
+
+```
+tools/generate_schema.py      APK sources  -> src/data/schema.json + catalog.json
+tools/generate_exprtable.py   APK sources  -> src/data/exprtable.json
+
+src/flo/binary.ts   varints, modified UTF-8
+src/flo/codec.ts    .flo reader/writer driven by schema.json
+src/flo/model.ts    object graph <-> editable blocks + connections
+src/flo/expr.ts     expression AST -> Automate expression source
+src/flo/blocks.ts   ports, categories, block captions
+src/flo/json.ts     readable JSON projection
+src/ui/             React editor
+```
+
+The generators are checked in so the data can be regenerated for a future
+Automate release: decompile the APK with [jadx](https://github.com/skylot/jadx),
+then point the scripts at its `sources/` directory.
+
+### The `.flo` format, briefly
+
+```
+"LAFl"                 magic
+u16                    format version (112 = Automate 1.51)
+zig-zag varint         next free statement id
+uvarint                statement count
+statements[]           object graph, depth-first
+```
+
+Objects are a zig-zag varint type id followed by that type's payload; `0` is
+null and a negative id is a back-reference to the Nth object already written,
+which is how the app encodes an arbitrary graph without recursing forever.
+Strings are Java modified UTF-8, length-prefixed by a varint from v35 onward.
+
+Each type's payload is a fixed field order gated by format version — the reason
+the schema is generated rather than written by hand: several hundred types, each
+with its own accumulated version history.
+
+## Status and limits
+
+- Editing an expression field replaces it with a plain text value. Untouched
+  fields keep their original expression trees, so nothing is lost by opening and
+  saving a flow.
+- A few statement types with Android `Parcel` payloads (Tasker plug-ins, pinned
+  shortcuts) are preserved verbatim but not editable here.
+- There is no expression *parser* yet, so typed-in expressions are stored as
+  text rather than compiled to an AST.
+
+## Contributing
+
+Bug reports with the `.flo` file that triggered them are the most useful thing —
+especially any file that fails to load or does not round-trip. Run
+`FLO_FIXTURES=... npm test` first; if a file fails that test, that is the bug.
+
+## Licence
+
+MIT for this code. Automate, the `.flo` format and the icon font are the property
+of LlamaLab.

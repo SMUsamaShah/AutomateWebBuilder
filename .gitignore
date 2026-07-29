@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+
+# LlamaLab's icon font is not redistributed here; run
+# `node scripts/extract-apk-assets.mjs <automate.apk>` to add it locally.
+public/fonts/AutomateIcons.ttf
+
+# Personal flow files used as local test fixtures
+fixtures/
+*.flo
