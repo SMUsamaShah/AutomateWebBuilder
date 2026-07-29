@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:single": "vite build --config vite.singlefile.config.ts && node scripts/build-singlefile.mjs",
-    "explain": "tsx tools/explain-flow.ts"
+    "explain": "tsx tools/explain-flow.ts",
+    "blocks": "tsx tools/blocks.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

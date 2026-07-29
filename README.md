@@ -116,6 +116,14 @@ That file is written to be self-sufficient: an agent can work from it without
 reading the source, and every example in it is executed by `tests/guide.test.ts`
 so it cannot go quietly stale.
 
+All 410 block types are listed in **[docs/BLOCKS.md](docs/BLOCKS.md)**, or
+searchable from the command line:
+
+```bash
+npm run blocks -- wifi           # find a block by what it does
+npm run blocks -- --id 1046      # its ports and arguments
+```
+
 To understand an existing flow first:
 
 ```bash

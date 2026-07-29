@@ -9,6 +9,8 @@ expression table are **generated** from the decompiled APK, never hand-written.
 - **Reading, analysing or editing a flow** → `docs/LLM-GUIDE.md`. It is written
   to be self-sufficient; you do not need to read `src/` to use the library.
   Its examples are executed by `tests/guide.test.ts`.
+- **Which block does X?** → `docs/BLOCKS.md` (all 410), or
+  `npm run blocks -- <query>`.
 - **Supporting a new Automate release** → `UPGRADING.md`.
 
 ## The one invariant
@@ -28,6 +30,7 @@ FLO_FIXTURES=/dir/with/flo/files npm test
 npm run dev            # editor with hot reload
 npm test               # full suite (fixture tests skip without FLO_FIXTURES)
 npm run explain -- f.flo   # execution-order walkthrough of a flow
+npm run blocks -- wifi     # find a block type; --index regenerates docs/BLOCKS.md
 npm run build          # static site -> dist/
 npm run build:single   # one self-contained dist/automate-web-builder.html
 ```

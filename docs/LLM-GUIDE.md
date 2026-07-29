@@ -33,6 +33,12 @@ npm run explain -- path/to/flow.flo --json     # same analysis, machine-readable
 npx tsx my-edit.ts
 ```
 
+```bash
+# Discover: which block does X, and what are its arguments called?
+npm run blocks -- wifi
+npm run blocks -- --id 1046
+```
+
 `npm run explain` is almost always the right first move. It prints entry points,
 every block with its arguments as Automate expression source, branch labels,
 where control loops back, which variables are assigned and referenced, and what
@@ -110,9 +116,49 @@ usually identify it from its position in `editableFields()`.
 
 ---
 
-## 4. Finding type ids, fields and ports
+## 4. Discovering blocks, and their fields and ports
 
-Never guess these. `catalog` covers all 410 block types.
+There are **410 block types**. Never guess an id or a field name: an unknown id
+throws, and a misspelled field is silently ignored and its value lost. Three
+ways to find what you need, cheapest first.
+
+### a. Search, when you have a keyword
+
+```bash
+npm run blocks -- wifi
+```
+
+```
+1147  WifiEnabled  —  Wi-Fi enabled?
+    Check if Wi-Fi is enabled.
+    category: Connectivity
+    ports:    YES -> onPositive, NO -> onNegative
+    fields:   continuity:obj
+    docs:     https://llamalab.com/automate/doc/block/wifi_enabled.html
+```
+
+It matches name, title and summary, and prints everything needed to use the
+block. Search for the *effect* ("vibrate", "clipboard", "screenshot", "http"),
+not for a class name you have imagined.
+
+### b. The complete listing, when you do not
+
+**[BLOCKS.md](BLOCKS.md)** is all 410 blocks with id, name, title and a
+one-line description, grouped into the same categories the app uses. It is about
+8,000 tokens — small enough to read in full when you need the whole vocabulary,
+and the reliable answer to "what can Automate even do?".
+
+```bash
+npm run blocks                    # category overview with counts
+npm run blocks -- --id 1046       # ports and arguments of one block
+```
+
+Category sizes, for orientation: Connectivity 70, Camera & sound 56, Apps 51,
+Interface 38, File & storage 31, Content 29, Battery & power 25, Sensor 14,
+Telephony 14, Messaging 12, Flow 12, Date & time 11, Location 10, Concurrency
+10, Settings 9, General 8, Other 10.
+
+### c. Programmatically, inside an edit script
 
 ```ts
 import { catalog } from './src/flo/model';
@@ -144,6 +190,10 @@ Object.entries(catalog)
 `catalog[tid]` also gives `summary` and `doc` (the page name on
 `https://llamalab.com/automate/doc/block/`), which is the fastest way to check
 what an argument means.
+
+> Note: a block's `name` is its class name and its `title` is what the app
+> displays, and they often differ — `ActivityStartResult` is shown as "App
+> decision?". Search covers both.
 
 ### Verified examples
 
@@ -398,6 +448,7 @@ device is not.
 | expressions | `src/flo/exprparse.ts` — `parseExpression`; `src/flo/expr.ts` — `renderExpression`, `stringLiteral`, `numberLiteral`, `variableRef` |
 | raw bytes, wire schema | `src/flo/codec.ts` — `parseFlo`, `writeFlo`, `schema`, `CURRENT_VERSION` |
 | readable JSON (not for editing) | `src/flo/json.ts` — `toJsonFlow`, `fromJsonFlow` |
+| all 410 block types | `docs/BLOCKS.md`, or `npm run blocks -- <query>` |
 
 Generated data — `src/data/schema.json`, `catalog.json`, `exprtable.json` — is
 produced from the app's compiled code by `tools/`. **Never hand-edit it.**
