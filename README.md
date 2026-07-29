@@ -19,10 +19,32 @@ desktop, plus a readable JSON projection you can hand to an AI agent.
 - **All 410 block types**, with the app's own titles, summaries, icons, and
   documentation links — searchable and grouped by category.
 - **The flowchart, as the app draws it.** Same grid, block shape, connector
-  colours (IN/OK/YES/NO/FAIL/DO/NEW), and curved connections.
+  colours (IN/OK/YES/NO/FAIL/DO/NEW), and orthogonal connection routing.
 - **Expression display.** Arguments render as real Automate expression source —
   `"Do you want to run BigOS " ++ versionbigos ++ " Setup?"`, not opaque blobs.
 - **JSON import/export** for reading or rewriting a flow with an AI agent.
+
+## What "byte-for-byte" means
+
+The test suite's central claim is that opening a `.flo` and saving it without
+edits reproduces the original file **exactly, byte for byte**.
+
+That is not a claim about edited files — an edit obviously changes bytes. It is
+a claim about everything you *didn't* edit. A format this size has hundreds of
+optional, version-gated fields; if the reader misunderstood even one of them,
+saving would quietly drop or corrupt it. Reproducing the input exactly is the
+only way to prove nothing is being lost in the parts of the flow the editor
+never shows you.
+
+Concretely, two properties are tested against real flows:
+
+- **Open then save, untouched → identical bytes.** No collateral damage.
+- **Change one thing → only that thing differs.** Every other block keeps its
+  type, position, arguments and connections.
+
+So when you move a block and save, the moved block's coordinates change and the
+rest of the file is written back exactly as it came in — including fields this
+editor has no UI for.
 
 ## Fidelity
 
@@ -30,13 +52,9 @@ The format was reverse-engineered from `com.llamalab.automate` 1.51.1262 by
 decompiling the APK and reading its `z0`/`S` (read/write) methods directly, then
 generating the wire schema from them rather than transcribing it by hand.
 
-The test suite's central claim is **byte-exact round-tripping**: a `.flo` that is
-parsed and re-serialized must reproduce the original file exactly. That is the
-only real proof the schema is right — a near-miss would produce a file the app
-either rejects or, worse, silently misreads.
-
 This was verified against real flows of 21, 43, 343 and 1243 blocks spanning
-format versions 84, 85 and 112, all byte-identical after a round trip.
+format versions 84, 85 and 112, all byte-identical after a round trip — both
+through the codec directly and through the editor's own load/save path.
 
 To run it against your own flows:
 
@@ -46,13 +64,25 @@ FLO_FIXTURES=/path/to/your/flows npm test
 
 ## Getting started
 
+There are three ways to run it, in increasing order of effort.
+
+**1. One file, no install.** Build (or download) `automate-web-builder.html` and
+open it in a browser — from your disk, a USB stick, anywhere. Everything is
+inlined into that single file: no server, no Node, no network.
+
 ```bash
-npm install
-npm run dev
+npm run build:single     # -> dist/automate-web-builder.html
 ```
 
-Then open the printed URL. `npm run build` produces a static `dist/` you can host
-anywhere — there is no server component and files never leave your machine.
+**2. Static hosting.** `npm run build` produces a plain `dist/` of HTML, JS and
+CSS. Drop it on GitHub Pages, Netlify, or any web server. There is no backend.
+
+**3. Development.** `npm install && npm run dev` for hot reloading while working
+on the code.
+
+Node is a *build-time* tool only — it compiles TypeScript and bundles the app.
+Nothing in the running editor needs it, and no flow you open is ever uploaded:
+all parsing and writing happens in the browser.
 
 ### Block icons
 

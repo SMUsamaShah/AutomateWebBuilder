@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:single": "vite build --config vite.singlefile.config.ts && node scripts/build-singlefile.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
