@@ -110,7 +110,21 @@ space rather than as anything recognisable.
 
 ## Editing a flow with an AI agent
 
-**Export JSON** turns the flow into a flat, readable document:
+If you want an AI agent to edit a flow *properly* — adding blocks, rewiring
+branches, changing expressions — hand it **[docs/LLM-GUIDE.md](docs/LLM-GUIDE.md)**.
+That file is written to be self-sufficient: an agent can work from it without
+reading the source, and every example in it is executed by `tests/guide.test.ts`
+so it cannot go quietly stale.
+
+To understand an existing flow first:
+
+```bash
+npm run explain -- path/to/flow.flo          # execution-order walkthrough
+npm run explain -- path/to/flow.flo --json   # same analysis, machine-readable
+```
+
+For a quick round trip through readable text, **Export JSON** turns the flow into
+a flat document:
 
 ```json
 {
@@ -134,7 +148,9 @@ Ask an agent to modify it, then **Import JSON** and save as `.flo`.
 
 Importing is deliberately lossy: blocks, positions, connections and simple
 argument values survive, but arguments that were complex expression trees come
-back as text values. Round-tripping through `.flo` (not JSON) is always lossless.
+back as text values. **For real edits use the model API** as described in the
+guide above, not the JSON projection. Round-tripping through `.flo` is always
+lossless.
 
 ## How it works
 
@@ -149,6 +165,10 @@ src/flo/expr.ts     expression AST -> Automate expression source
 src/flo/blocks.ts   ports, categories, block captions
 src/flo/json.ts     readable JSON projection
 src/ui/             React editor
+
+tools/explain-flow.ts   npm run explain — what does this flow do?
+tools/diff_schema.py    what changed between two Automate releases?
+docs/LLM-GUIDE.md       hand this to an AI agent instead of the source
 ```
 
 The generators are checked in so the data can be regenerated for a future

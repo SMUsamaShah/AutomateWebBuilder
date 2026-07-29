@@ -1,0 +1,39 @@
+# Automate Web Builder
+
+Browser-based editor for LlamaLab Automate `.flo` flow files. The binary format
+is reverse-engineered from the app; the wire schema, block catalog and
+expression table are **generated** from the decompiled APK, never hand-written.
+
+## Read this first
+
+- **Reading, analysing or editing a flow** → `docs/LLM-GUIDE.md`. It is written
+  to be self-sufficient; you do not need to read `src/` to use the library.
+  Its examples are executed by `tests/guide.test.ts`.
+- **Supporting a new Automate release** → `UPGRADING.md`.
+
+## The one invariant
+
+Loading a `.flo` and saving it untouched must reproduce the file **byte for
+byte**, through both the codec and the editor's load/save path. That is what
+proves nothing is lost in the parts of a flow the UI never shows. Two tests
+enforce it; run them against real flows before trusting a change:
+
+```bash
+FLO_FIXTURES=/dir/with/flo/files npm test
+```
+
+## Commands
+
+```bash
+npm run dev            # editor with hot reload
+npm test               # full suite (fixture tests skip without FLO_FIXTURES)
+npm run explain -- f.flo   # execution-order walkthrough of a flow
+npm run build          # static site -> dist/
+npm run build:single   # one self-contained dist/automate-web-builder.html
+```
+
+## Do not
+
+- Hand-edit `src/data/*.json` — regenerate with `tools/`.
+- Commit `public/fonts/AutomateIcons.ttf` or any `.flo` file; both are ignored
+  deliberately (LlamaLab's asset, and users' personal flows).
