@@ -40,7 +40,17 @@ export const schema = schemaJson as unknown as Schema;
 const MAGIC = 0x4c41466c; // "LAFl"
 /** Length-prefix for strings became a varint at this format version. */
 const VARLEN_UTF_SINCE = 35;
-/** Format version written by Automate 1.51.x. */
+/**
+ * Format version written by Automate 1.51.x, and the newest this build can read.
+ *
+ * The app applies the same rule (`Q3.c.n` throws InvalidVersionException above
+ * its own maximum) because a newer file may add fields to existing blocks, and
+ * a reader that does not know about them would desynchronise mid-stream and
+ * silently misread the rest of the flow. Refusing is the only safe response.
+ *
+ * Regenerating `schema.json` from a newer APK is what raises this: the highest
+ * version gate in the schema is the version that build understands.
+ */
 export const CURRENT_VERSION = 112;
 
 export class FloFormatError extends Error {}
@@ -79,6 +89,13 @@ class Decoder {
   header(): { version: number; nextId: bigint; count: number } {
     if (this.r.i32() !== MAGIC) throw new FloFormatError('not an Automate flow file (bad magic)');
     this.version = this.r.u16();
+    if (this.version > CURRENT_VERSION) {
+      throw new FloFormatError(
+        `This flow was saved in format v${this.version}, but this build only ` +
+          `understands up to v${CURRENT_VERSION}. It was probably created by a ` +
+          `newer version of Automate — see UPGRADING.md for regenerating the schema.`,
+      );
+    }
     this.varlenUtf = this.version >= VARLEN_UTF_SINCE;
     const nextId = this.r.svar64();
     const count = Number(this.r.uvar());

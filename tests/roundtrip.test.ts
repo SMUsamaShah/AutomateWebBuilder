@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseFlo, writeFlo } from '../src/flo/codec';
+import { CURRENT_VERSION, parseFlo, writeFlo } from '../src/flo/codec';
 import { createBlock, emptyModel, fromModel, toModel, connect } from '../src/flo/model';
 
 function fixtureFiles(): string[] {
@@ -127,5 +127,25 @@ describe('editing fidelity', () => {
         expect(b.y).toBe(was.y);
       }
     }
+  });
+});
+
+describe('format version handling', () => {
+  it('refuses a flow newer than the schema understands', () => {
+    // A reader that guessed at unknown fields would desynchronise and quietly
+    // misread the rest of the flow, so a newer version must be rejected.
+    const model = emptyModel();
+    const bytes = fromModel(model);
+    const tampered = new Uint8Array(bytes);
+    new DataView(tampered.buffer).setUint16(4, CURRENT_VERSION + 1, false);
+    expect(() => parseFlo(tampered)).toThrow(/only understands up to/);
+  });
+
+  it('preserves the version a flow arrived with', () => {
+    // Saving must not silently upgrade an old flow, which is what keeps
+    // round-tripping byte-exact for files from older Automate releases.
+    const model = emptyModel();
+    model.version = 85;
+    expect(parseFlo(fromModel(model)).version).toBe(85);
   });
 });

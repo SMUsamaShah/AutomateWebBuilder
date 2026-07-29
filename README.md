@@ -153,7 +153,10 @@ src/ui/             React editor
 
 The generators are checked in so the data can be regenerated for a future
 Automate release: decompile the APK with [jadx](https://github.com/skylot/jadx),
-then point the scripts at its `sources/` directory.
+point the scripts at its `sources/` directory, and run `tools/diff_schema.py` to
+see exactly what the release changed on the wire. **[UPGRADING.md](UPGRADING.md)**
+has the full procedure — supporting a new Automate version is meant to be a code
+review, not a research project.
 
 ### The `.flo` format, briefly
 
@@ -197,6 +200,11 @@ this safe:
   stores alongside it. Everything else about the value is preserved.
 - There is no undo. Reverting an uncommitted edit is Esc; beyond that, reopen
   the file.
+
+## Contributing to a new Automate release
+
+See [UPGRADING.md](UPGRADING.md). Short version: re-run two generators, read the
+schema diff, and confirm the round-trip tests still pass against real flows.
 
 ## Contributing
 
