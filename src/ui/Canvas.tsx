@@ -36,17 +36,105 @@ function portPoint(block: Block, side: 'top' | 'bottom' | 'right') {
   return { x: x + BLOCK_W, y: y + BLOCK_H / 2 };
 }
 
-function edgePath(
-  from: { x: number; y: number },
-  side: 'top' | 'bottom' | 'right',
-  to: { x: number; y: number },
-): string {
-  if (side === 'right') {
-    const dx = Math.max(28, Math.abs(to.x - from.x) * 0.5);
-    return `M ${from.x} ${from.y} C ${from.x + dx} ${from.y}, ${to.x} ${to.y - 40}, ${to.x} ${to.y}`;
+interface Point {
+  x: number;
+  y: number;
+}
+
+/** Straight run leaving a source port and entering a target's IN port. */
+const STUB = 16;
+/** How far a connection detours sideways when it has to double back. */
+const LANE = 56;
+/** Corner radius, matching the app's rounded elbows. */
+const RADIUS = 10;
+
+/** Drop duplicate and collinear points so corners only appear at real turns. */
+function simplify(pts: Point[]): Point[] {
+  const out: Point[] = [];
+  for (const p of pts) {
+    const last = out[out.length - 1];
+    if (last && Math.abs(last.x - p.x) < 0.5 && Math.abs(last.y - p.y) < 0.5) continue;
+    out.push(p);
   }
-  const dy = Math.max(28, Math.abs(to.y - from.y) * 0.5);
-  return `M ${from.x} ${from.y} C ${from.x} ${from.y + dy}, ${to.x} ${to.y - dy}, ${to.x} ${to.y}`;
+  for (let i = 1; i < out.length - 1; ) {
+    const a = out[i - 1];
+    const b = out[i];
+    const c = out[i + 1];
+    const collinear =
+      (Math.abs(a.x - b.x) < 0.5 && Math.abs(b.x - c.x) < 0.5) ||
+      (Math.abs(a.y - b.y) < 0.5 && Math.abs(b.y - c.y) < 0.5);
+    if (collinear) out.splice(i, 1);
+    else i++;
+  }
+  return out;
+}
+
+/**
+ * Waypoints for a connection, using only horizontal and vertical runs — the
+ * app routes this way, so long links read as pipework rather than as diagonals
+ * cutting across the chart.
+ *
+ * Every connection leaves its port along that port's axis and enters the
+ * target's IN connector from directly above.
+ */
+function route(from: Point, side: 'top' | 'bottom' | 'right', to: Point): Point[] {
+  const entry: Point = { x: to.x, y: to.y - STUB };
+  const pts: Point[] = [from];
+
+  if (side === 'right') {
+    const exit: Point = { x: from.x + STUB, y: from.y };
+    // Reach the target's column, detouring past it when doubling back upwards.
+    const lane = entry.y > exit.y ? Math.max(exit.x, entry.x) : Math.max(exit.x, entry.x + LANE);
+    pts.push(exit, { x: lane, y: exit.y }, { x: lane, y: entry.y });
+  } else {
+    const exit: Point = { x: from.x, y: from.y + STUB };
+    pts.push(exit);
+    if (entry.y > exit.y) {
+      // Target is below: step across at the midpoint between the two blocks.
+      const midY = (exit.y + entry.y) / 2;
+      pts.push({ x: exit.x, y: midY }, { x: entry.x, y: midY });
+    } else {
+      // Target is level or above: swing out to a side lane and come back up.
+      const lane = from.x + (to.x >= from.x ? LANE : -LANE);
+      pts.push({ x: lane, y: exit.y }, { x: lane, y: entry.y });
+    }
+  }
+
+  pts.push(entry, to);
+  return simplify(pts);
+}
+
+/** Render waypoints as a path with rounded corners. */
+function roundedPath(pts: Point[]): string {
+  if (pts.length < 2) return '';
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = pts[i - 1];
+    const cur = pts[i];
+    const next = pts[i + 1];
+    const inLen = Math.hypot(cur.x - prev.x, cur.y - prev.y);
+    const outLen = Math.hypot(next.x - cur.x, next.y - cur.y);
+    const r = Math.min(RADIUS, inLen / 2, outLen / 2);
+    if (r < 1) {
+      d += ` L ${cur.x} ${cur.y}`;
+      continue;
+    }
+    const before = {
+      x: cur.x - ((cur.x - prev.x) / inLen) * r,
+      y: cur.y - ((cur.y - prev.y) / inLen) * r,
+    };
+    const after = {
+      x: cur.x + ((next.x - cur.x) / outLen) * r,
+      y: cur.y + ((next.y - cur.y) / outLen) * r,
+    };
+    d += ` L ${before.x} ${before.y} Q ${cur.x} ${cur.y} ${after.x} ${after.y}`;
+  }
+  const last = pts[pts.length - 1];
+  return d + ` L ${last.x} ${last.y}`;
+}
+
+function edgePath(from: Point, side: 'top' | 'bottom' | 'right', to: Point): string {
+  return roundedPath(route(from, side, to));
 }
 
 export function Canvas({

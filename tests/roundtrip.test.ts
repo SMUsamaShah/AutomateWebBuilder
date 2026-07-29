@@ -82,3 +82,50 @@ describe('flo codec', () => {
     }
   });
 });
+
+describe('editing fidelity', () => {
+  const files = fixtureFiles();
+  const maybe = files.length ? it : it.skip;
+
+  maybe('load -> save with no edits reproduces the file exactly', () => {
+    // This is the path the editor itself takes, and a stronger claim than the
+    // codec test: it also covers back-reference renumbering and statement
+    // ordering after the graph has been flattened into blocks and rebuilt.
+    for (const path of files) {
+      const original = new Uint8Array(readFileSync(path));
+      const rewritten = fromModel(toModel(original));
+      expect(rewritten, `${path} changed when opened and saved untouched`).toEqual(original);
+    }
+  });
+
+  maybe('an edit changes only what was edited', () => {
+    for (const path of files) {
+      const original = new Uint8Array(readFileSync(path));
+      const before = toModel(original);
+      const edited = toModel(original);
+
+      // Move exactly one block by one grid cell.
+      const target = edited.blocks[Math.floor(edited.blocks.length / 2)];
+      const targetId = target.id;
+      target.x += 1;
+
+      const after = toModel(fromModel(edited));
+
+      expect(after.blocks.length).toBe(before.blocks.length);
+      expect(after.connections.length).toBe(before.connections.length);
+
+      const beforeById = new Map(before.blocks.map((b) => [b.id, b]));
+      for (const b of after.blocks) {
+        const was = beforeById.get(b.id)!;
+        expect(was, `block ${b.id} appeared from nowhere`).toBeTruthy();
+        expect(b.typeId).toBe(was.typeId);
+        if (b.id === targetId) {
+          expect(b.x).toBe(was.x + 1);
+        } else {
+          expect(b.x, `block ${b.id} moved unexpectedly`).toBe(was.x);
+        }
+        expect(b.y).toBe(was.y);
+      }
+    }
+  });
+});
