@@ -122,6 +122,11 @@ That file is written to be self-sufficient: an agent can work from it without
 reading the source, and every example in it is executed by `tests/guide.test.ts`
 so it cannot go quietly stale.
 
+**[examples/](examples/)** builds whole flows from scratch with that API —
+`examples/app-usage-today.ts` writes a flow that asks an Android TV over ADB how
+long an app was used today, and explains how Automate's `Subroutine` block is
+used to make it a reusable function.
+
 All 410 block types are listed in **[docs/BLOCKS.md](docs/BLOCKS.md)**, or
 searchable from the command line:
 
@@ -183,6 +188,7 @@ src/ui/             React editor
 tools/explain-flow.ts   npm run explain — what does this flow do?
 tools/diff_schema.py    what changed between two Automate releases?
 docs/LLM-GUIDE.md       hand this to an AI agent instead of the source
+examples/               flows built from scratch with the model API
 ```
 
 The generators are checked in so the data can be regenerated for a future

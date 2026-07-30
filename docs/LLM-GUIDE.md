@@ -397,6 +397,28 @@ for (const c of inbound) if (outbound) connect(model, c.from, c.port, outbound.t
 deleteBlock(model, victim.id);                       // also drops its edges
 ```
 
+### Build a reusable "function"
+
+Automate has no cross-flow call-with-return. The `Subroutine` block (1278) runs
+a branch of the **same** flow in a child fiber, waits for it, and copies the
+variables named in `returnVariables` back into the caller — the child starts
+with a clone of every caller variable, so those are the arguments.
+
+```ts
+const call = createBlock(model, 1278, 4, 12);            // Subroutine
+call.raw.returnVariables = { _arr: [variableRef('result'), variableRef('error')] };
+
+connect(model, call.id, 'onChildFiber', bodyStart.id);   // NEW -> the body
+connect(model, call.id, 'onComplete', afterCall.id);     // OK  -> the caller
+```
+
+The body "returns" by running out of connections. Reuse means copying the branch
+into another flow, not importing one. The cross-flow alternative is `Flow start`
+with a payload plus `Variables give` (1214) / `Variables take?` (1215), which
+needs cooperating blocks on both sides.
+
+`examples/app-usage-today.ts` is a complete worked example.
+
 ### Find dead blocks
 
 ```ts
