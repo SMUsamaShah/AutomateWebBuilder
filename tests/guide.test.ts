@@ -339,3 +339,23 @@ describe('LLM-GUIDE §9 — pitfalls that are checkable', () => {
     }
   });
 });
+
+describe('field kinds — array element types', () => {
+  it('distinguishes an array of variables from an array of expressions', () => {
+    // A destructuring block's targets must each be a variable reference. Reporting
+    // this as a plain 'array' silently disabled the check that enforces it.
+    expect(fieldKind(1412, 'variables')).toBe('variable-array'); // DestructuringAssign
+    expect(fieldKind(1215, 'variables')).toBe('variable-array'); // VariablesTake
+    expect(fieldKind(1287, 'labels')).toBe('array'); // Goto: statements, not variables
+  });
+
+  it('catches a non-variable among destructuring targets', () => {
+    const model = emptyModel();
+    const d = createBlock(model, 1412, 4, 6);
+    d.raw.variables = { _arr: [variableRef('a'), numberLiteral(1)] };
+    expect(validateModel(model).join('\n')).toMatch(/entries must be variable references/);
+
+    d.raw.variables = { _arr: [variableRef('a'), variableRef('b')] };
+    expect(validateModel(model)).toEqual([]);
+  });
+});

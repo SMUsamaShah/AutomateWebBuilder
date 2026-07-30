@@ -138,6 +138,7 @@ export function editableFields(typeId: number): Array<{ name: string; op: string
 export type FieldKind =
   | 'expression' // any expression node
   | 'variable' // must be a variable reference (I3.l)
+  | 'variable-array' // { _arr: [...] } of variable references, e.g. destructuring targets
   | 'integer' // must be a boxed java.lang.Integer
   | 'statement' // a port; use connect()/disconnect(), never assign
   | 'text' // plain string
@@ -150,7 +151,6 @@ export type FieldKind =
 const CAST_KIND: Record<string, FieldKind> = {
   'com.llamalab.automate.InterfaceC1482k2': 'statement',
   'I3.l': 'variable',
-  'I3.l[]': 'variable',
   'java.lang.Integer': 'integer',
 };
 
@@ -163,6 +163,9 @@ export function fieldKind(typeId: number, field: string): FieldKind | null {
       return (op.cast && CAST_KIND[op.cast]) || 'expression';
     case 'objarray':
     case 'varargs':
+      // The cast matters here too: a destructuring block's targets are an array
+      // of variable references, not of arbitrary expressions.
+      return op.cast === 'I3.l[]' ? 'variable-array' : 'array';
     case 'kvpairs':
       return 'array';
     case 'utf':

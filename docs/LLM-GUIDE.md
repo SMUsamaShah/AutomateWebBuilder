@@ -234,6 +234,7 @@ fieldKind(1046, 'continuity');  // 'integer'   <- not an expression!
 fieldKind(1342, 'varStdout');   // 'variable'
 fieldKind(1046, 'onComplete');  // 'statement' <- a port; use connect()
 fieldKind(1072, 'title');       // 'text'
+fieldKind(1412, 'variables');   // 'variable-array' (destructuring targets)
 ```
 
 | `fieldKind` | Assign | Build with |
@@ -246,7 +247,8 @@ fieldKind(1072, 'title');       // 'text'
 | `flag` | `0` or `1` | `1` |
 | `number` | a `number` | `3` |
 | `bigint` | a `bigint` | `3n` |
-| `array` | `{ _arr: [...] }` (or `{ _kv: [...] }`) | `{ _arr: [variableRef('x')] }` |
+| `variable-array` | `{ _arr: [...] }` of variable references only | `{ _arr: [variableRef('a'), variableRef('b')] }` |
+| `array` | `{ _arr: [...] }` (or `{ _kv: [...] }`) | `{ _arr: [parseExpression('1')] }` |
 | `opaque` | leave untouched | — |
 
 The two that bite:

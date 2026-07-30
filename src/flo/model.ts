@@ -345,7 +345,7 @@ export function validateModel(model: FlowModel): string[] {
         problems.push(`${where}.${op.f} must be a boxed Integer (integerBox), got type ${t}`);
       } else if (kind === 'statement' && t !== null && t < 1000) {
         problems.push(`${where}.${op.f} is a port; connect() it instead of assigning type ${t}`);
-      } else if (kind === 'variable' && op.op === 'objarray') {
+      } else if (kind === 'variable-array') {
         for (const item of (value as { _arr?: unknown[] })?._arr ?? []) {
           if (typeOf(item) !== 102) {
             problems.push(`${where}.${op.f} entries must be variable references`);
