@@ -259,6 +259,15 @@ The two that bite:
   are assignment targets and take `variableRef('name')`. The `var` prefix is a
   reliable hint, but `fieldKind` is the actual rule.
 
+> **A variable is its node, not its name.** Automate gives each distinct `I3.l`
+> instance a slot index when it loads the flow, and addresses variables by that
+> index — the name is only ever displayed. Two separate nodes spelled `host` are
+> two unrelated variables: one gets assigned, the other stays null, and the flow
+> quietly does the wrong thing on the device while parsing, validating and
+> explaining perfectly here. `variableRef()` and `parseExpression()` mint a fresh
+> node per call, so **`fromModel()` merges them by name on save**. You get this
+> for free; do not defeat it by writing the graph some other way.
+
 ```ts
 import { parseExpression } from './src/flo/exprparse';
 import {

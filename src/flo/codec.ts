@@ -52,6 +52,8 @@ const VARLEN_UTF_SINCE = 35;
  * version gate in the schema is the version that build understands.
  */
 export const CURRENT_VERSION = 112;
+/** `I3.l`, a reference to a flow variable. See `Encoder.canonicalVariable`. */
+export const VARIABLE_TYPE = 102;
 
 export class FloFormatError extends Error {}
 
@@ -331,11 +333,38 @@ class Encoder {
   private readonly w = new ByteWriter(4096);
   /** Object identity -> 1-based index, mirroring the app's IdentityHashMap. */
   private readonly seen = new Map<object, number>();
+  /** Variable name -> the one node every mention of it must share. */
+  private readonly variables = new Map<string, FloObject>();
   private count = 0;
   private readonly varlenUtf: boolean;
 
   constructor(readonly version: number) {
     this.varlenUtf = version >= VARLEN_UTF_SINCE;
+  }
+
+  /**
+   * Collapse every mention of a variable onto a single node.
+   *
+   * A variable's name is display-only. When Automate loads a flow it walks the
+   * graph through an `IdentityHashMap` and hands each distinct `I3.l`
+   * *instance* the next free slot index (`C1453e2.d`); every read and write
+   * then goes through that index and never looks at the name again. Two
+   * separate nodes both spelled `host` are therefore two unrelated variables —
+   * assign one and the other stays null, with nothing to show for it but a
+   * flow that quietly does the wrong thing.
+   *
+   * The app can only ever produce shared instances and all 11 real flows
+   * tested satisfy this, so it is a no-op on files that came from the app and
+   * byte-exact round-tripping is unaffected. It matters for graphs built here:
+   * `variableRef()` and `parseExpression()` mint a fresh node per call.
+   */
+  private canonicalVariable(v: FloObject): FloObject {
+    if (v._type !== VARIABLE_TYPE) return v;
+    const name = String(v.f4289X ?? '');
+    const first = this.variables.get(name);
+    if (first) return first;
+    this.variables.set(name, v);
+    return v;
   }
 
   header(nextId: bigint, statements: number): void {
@@ -427,11 +456,14 @@ class Encoder {
       this.w.svar32(0);
       return;
     }
-    const obj = v as FloObject & { _ref?: number };
+    let obj = v as FloObject & { _ref?: number };
     if (typeof obj._ref === 'number') {
       this.w.svar32(-(obj._ref + 1));
       return;
     }
+    // Ahead of the identity lookup, so repeat mentions of a variable become
+    // back-references to the first — exactly how the app writes them.
+    obj = this.canonicalVariable(obj);
     const prior = this.seen.get(obj as object);
     if (prior !== undefined) {
       this.w.svar32(-prior);

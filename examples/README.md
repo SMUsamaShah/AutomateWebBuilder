@@ -116,8 +116,10 @@ error.
   that forgets to check `usageError` still gets defined values rather than
   whatever those variables happened to hold.
 
-### Untested on hardware
+### Status
 
-The `.flo` is verified — it validates, round-trips, and the pipeline was checked
-against real `dumpsys usagestats` output captured from the device. The flow
-itself has not been run on a phone; that part is yours.
+Run on a device. The first build reached every block in the right order but
+every variable read back empty — separately-built `I3.l` nodes with the same
+name are separate variables to Automate, which the encoder now merges on save.
+The shell pipeline was checked against real `dumpsys usagestats` output captured
+from the device.
