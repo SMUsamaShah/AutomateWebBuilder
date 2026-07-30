@@ -52,11 +52,21 @@ Returned:
 | Variable | Meaning |
 | --- | --- |
 | `usageSeconds` | today's foreground time in seconds, `0` if the app was not used |
-| `usageText` | the same, formatted — `"2h 5m 3s"` |
+| `usageText` | `"2h 5m 3s"`, `"no usage recorded today"`, or `"unknown"` on failure |
 | `usageError` | `null` on success, otherwise why it failed |
 
-The entry point (`Flow beginning "App usage today"`) fills those three inputs
-from its payload and then shows the result, so the flow is runnable on its own:
+### Choosing the app
+
+Three ways, in the order you will actually reach for them.
+
+**Tap the flow and pick from a menu.** `Flow beginning "App usage today"` shows a
+`Dialog choice?` when no package was supplied. Automate's dialog, given a
+dictionary, displays the *values* and returns the *keys* — so the menu is
+`{package: "Friendly name"}` and the selection is already a package name, with
+no lookup in between. Edit `APPS` in the script (or the `Destructuring assign`
+in block #2, in the editor) to change the menu.
+
+**Start it from another flow with a payload**, which skips the dialog:
 
 ```
 {"package": "com.playdigious.deadcells.mobile", "host": "192.168.0.34"}
@@ -64,6 +74,20 @@ from its payload and then shows the result, so the flow is runnable on its own:
 
 Anything the payload omits falls back to a default — the Android TV at
 `192.168.0.30`, port `5555`.
+
+**Call the subroutine directly** from a flow of your own (below), setting
+`usagePackage` yourself.
+
+### Finding package names
+
+`Flow beginning "List TV apps"` runs `pm list packages -3` on the TV and shows
+what is installed, so the menu can be extended from the device rather than from
+memory.
+
+Use it rather than guessing. `dumpsys usagestats` answers for a package that is
+not installed exactly as it does for one that has not been opened today, so a
+mistyped name reports "no usage recorded today" — a confident wrong answer. Only
+the four packages seen in working flows ship in the menu for that reason.
 
 ### Calling it from your own flow
 
@@ -102,9 +126,9 @@ flow splits on `:` and counts the fields rather than assuming three:
 ```
 
 An app that has not been used today produces no `totalTimeUsed` line at all.
-`sed` and `head` both succeed on empty input, so the exit code stays `0`, the
-split yields one field, and the answer is `0` — which is the truth, not an
-error.
+`sed` and `head` both succeed on empty input, so the exit code stays `0` and the
+split yields one field — reported as `"no usage recorded today"` rather than
+`"0h 0m 0s"`, because an absent record is not the same claim as a measured zero.
 
 ### What can go wrong, and what it does about it
 
@@ -112,14 +136,18 @@ error.
   catch` retries once, then sets `usageError` to the failure message.
 - **Command ran but failed** — a non-zero exit code sets `usageError` to
   `"ADB exited N: <stderr>"`.
-- Either way `usageSeconds` is `0` and `usageText` is `"0h 0m 0s"`, so a caller
+- Either way `usageSeconds` is `0` and `usageText` is `"unknown"`, so a caller
   that forgets to check `usageError` still gets defined values rather than
   whatever those variables happened to hold.
+- **A package that is not installed** is the one case nothing detects — it
+  answers "no usage recorded today", same as an app you did not open. Take
+  package names from "List TV apps", not from memory.
 
 ### Status
 
-Run on a device. The first build reached every block in the right order but
-every variable read back empty — separately-built `I3.l` nodes with the same
-name are separate variables to Automate, which the encoder now merges on save.
-The shell pipeline was checked against real `dumpsys usagestats` output captured
-from the device.
+Confirmed working on the device: connects, reads `dumpsys`, parses, and returns.
+
+The first build reached every block in the right order but every variable read
+back empty — separately-built `I3.l` nodes sharing a name are separate variables
+to Automate, which the encoder now merges on save. The picker and the app-list
+beginning were added afterwards and have not been run on hardware.

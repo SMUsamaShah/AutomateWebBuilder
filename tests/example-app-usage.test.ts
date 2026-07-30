@@ -34,16 +34,44 @@ describe('app usage example', () => {
     expect(reloaded.connections.length).toBe(model.connections.length);
   });
 
-  it('leaves no block unreachable from the flow beginning', () => {
-    const start = only(model, 'FlowBeginning');
+  it('leaves no block unreachable from a flow beginning', () => {
     const seen = new Set<string>();
     const walk = (id: string) => {
       if (seen.has(id)) return;
       seen.add(id);
       for (const c of model.connections) if (c.from === id) walk(c.to);
     };
-    walk(start.id);
-    expect([...model.blocks].filter((b) => !seen.has(b.id)).map((b) => b.id)).toEqual([]);
+    const beginnings = byName(model, 'FlowBeginning');
+    expect(beginnings.map((b) => b.raw.title)).toEqual(['App usage today', 'List TV apps']);
+    beginnings.forEach((b) => walk(b.id));
+    expect(model.blocks.filter((b) => !seen.has(b.id)).map((b) => b.id)).toEqual([]);
+  });
+
+  it('picks the app from a dictionary, so the choice is already a package', () => {
+    const pick = only(model, 'DialogChoice');
+    // Automate shows a dictionary's values and returns its keys.
+    expect(renderExpression(pick.raw.choiceTitles as never)).toBe('usageApps');
+    expect(renderExpression(pick.raw.varSelectedIndices as never)).toBe('usageChoice');
+
+    const chosen = model.connections.find((c) => c.from === pick.id && c.port === 'onPositive');
+    const assign = model.blocks.find((b) => b.id === chosen!.to)!;
+    // The result is an array even for a single choice.
+    expect(renderExpression(assign.raw.value as never)).toBe('usageChoice[0]');
+    expect(renderExpression(assign.raw.variable as never)).toBe('usagePackage');
+
+    // Cancelling must not fall through to a lookup with no package.
+    expect(model.connections.find((c) => c.from === pick.id && c.port === 'onNegative')).toBeUndefined();
+  });
+
+  it('skips the picker when a payload already named the package', () => {
+    const gate = byName(model, 'ExpressionDecision').find(
+      (b) => renderExpression(b.raw.expression as never) === '!usagePackage',
+    )!;
+    const yes = model.connections.find((c) => c.from === gate.id && c.port === 'onPositive')!;
+    const no = model.connections.find((c) => c.from === gate.id && c.port === 'onNegative')!;
+    const target = (id: string) => model.blocks.find((b) => b.id === id)!.entry?.name;
+    expect(target(yes.to)).toBe('DialogChoice');
+    expect(target(no.to)).toBe('Subroutine');
   });
 
   it('enters the subroutine body through the NEW port', () => {
@@ -63,7 +91,7 @@ describe('app usage example', () => {
   });
 
   it('sends the verified dumpsys pipeline, unescaped, to the device', () => {
-    const adb = only(model, 'AdbShellCommand');
+    const [adb] = byName(model, 'AdbShellCommand');
     // The concatenation's right operand is the literal the device receives.
     const tail = (adb.raw.command as { f4654Y: { f4649X: string } }).f4654Y.f4649X;
     expect(tail).toBe(
@@ -71,6 +99,15 @@ describe('app usage example', () => {
         ` | sed 's/.*totalTimeUsed="\\([^"]*\\)".*/\\1/' | head -n 1`,
     );
     expect(renderExpression(adb.raw.varExitCode as never)).toBe('usageExit');
+  });
+
+  it('can read the real package names off the device', () => {
+    // A guessed package name is indistinguishable from an unused app, so the
+    // menu has to be extensible from something authoritative.
+    const [, lister] = byName(model, 'AdbShellCommand');
+    expect(renderExpression(lister.raw.command as never)).toBe(
+      `"pm list packages -3 | sed 's/^package://' | sort"`,
+    );
   });
 
   it('handles MM:SS and H:MM:SS the way the device prints them', () => {

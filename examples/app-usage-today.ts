@@ -17,8 +17,13 @@
  * It returns:
  *
  *   usageSeconds  today's foreground time in seconds (0 if unused)
- *   usageText     the same, formatted, e.g. "2h 5m 3s"
+ *   usageText     the same, formatted — "2h 5m 3s", "no usage recorded today",
+ *                 or "unknown" when the lookup failed
  *   usageError    null on success, a message otherwise
+ *
+ * Two beginnings drive it: "App usage today" asks which app (or takes one from
+ * a payload) and reports the time, and "List TV apps" prints the packages that
+ * are actually installed, so the picker's menu can be extended without guessing.
  *
  * The shell pipeline is the one verified by hand against a real Android TV; the
  * device prints `totalTimeUsed="20:01"` (MM:SS) or `"2:05:03"` (H:MM:SS), which
@@ -49,7 +54,28 @@ const type = (name: string): number => {
 /** Keychain alias of the ADB key the user's other flows already authorised. */
 const ADB_ALIAS = 'adb-400db59ad1d7b389ba138dd73d9bef79';
 const DEFAULT_HOST = '192.168.0.30';
-const DEFAULT_PACKAGE = 'com.google.android.youtube.tvkids';
+
+/**
+ * The picker's menu, package -> label.
+ *
+ * `Dialog choice?` given a dictionary shows the *values* and assigns the
+ * *keys*, so the selection is already a package name and needs no lookup.
+ *
+ * Only the four packages seen in working flows are listed. A guessed package
+ * name is worse than a missing one: `dumpsys` answers for an app that is not
+ * installed exactly as it does for one that has not been opened today, so a
+ * typo reads as a confident "not used". Run the flow's "List TV apps"
+ * beginning to get the real names off the device and add them here.
+ */
+const APPS: Record<string, string> = {
+  'com.google.android.youtube.tvkids': 'YouTube Kids',
+  'com.google.android.youtube.tv': 'YouTube',
+  'com.retroarch': 'RetroArch',
+  'com.playdigious.deadcells.mobile': 'Dead Cells',
+};
+
+/** Installed third-party packages, one per line, without the `package:` prefix. */
+const LIST_COMMAND = `"pm list packages -3 | sed 's/^package://' | sort"`;
 
 /**
  * `dumpsys usagestats <pkg>` prints four sections (daily, weekly, monthly,
@@ -78,34 +104,55 @@ export function buildFlow(): FlowModel {
   begin.raw.title = 'App usage today';
   begin.raw.varPayload = variableRef('args');
 
+  // A payload supplies the package; without one the picker below asks.
   const defaults = add(model, 'DestructuringAssign', 4, 6);
   defaults.raw.value = parseExpression(
-    `[args["package"] || ${JSON.stringify(DEFAULT_PACKAGE)},
+    `[args["package"],
       args["host"] || ${JSON.stringify(DEFAULT_HOST)},
-      args["port"] || 5555]`,
+      args["port"] || 5555,
+      ${JSON.stringify(APPS)}]`,
   );
-  defaults.raw.variables = vars('usagePackage', 'usageHost', 'usagePort');
+  defaults.raw.variables = vars('usagePackage', 'usageHost', 'usagePort', 'usageApps');
 
-  const call = add(model, 'Subroutine', 4, 12);
+  const needsApp = add(model, 'ExpressionDecision', 4, 12);
+  needsApp.raw.expression = parseExpression('!usagePackage');
+
+  const pick = add(model, 'DialogChoice', 4, 18);
+  pick.raw.title = parseExpression('"Usage on the TV today"');
+  pick.raw.choiceTitles = parseExpression('usageApps');
+  pick.raw.varSelectedIndices = variableRef('usageChoice');
+
+  // Given a dictionary the dialog shows the values and returns the keys, and
+  // the result is always an array even for a single choice.
+  const chosen = add(model, 'VariableAssign', 4, 24);
+  chosen.raw.variable = variableRef('usagePackage');
+  chosen.raw.value = parseExpression('usageChoice[0]');
+
+  const call = add(model, 'Subroutine', 4, 30);
   call.raw.returnVariables = vars('usageSeconds', 'usageText', 'usageError');
 
-  const worked = add(model, 'ExpressionDecision', 4, 18);
+  const worked = add(model, 'ExpressionDecision', 4, 36);
   worked.raw.expression = parseExpression('!usageError');
 
-  const log = add(model, 'LogAppend', 4, 24);
+  const log = add(model, 'LogAppend', 4, 42);
   log.raw.message = parseExpression(
-    '"{usagePackage} on {usageHost}: {usageText} today ({usageSeconds} s)"',
+    '"{usagePackage} on {usageHost}: {usageText} ({usageSeconds} s)"',
   );
   log.raw.whenLogging = parseExpression('0');
 
-  const report = add(model, 'ToastShow', 4, 30);
-  report.raw.message = parseExpression('"{usagePackage}\\n{usageText} today"');
+  const report = add(model, 'ToastShow', 4, 48);
+  report.raw.message = parseExpression('"{usageApps[usagePackage] || usagePackage}\\n{usageText}"');
 
-  const complain = add(model, 'ToastShow', 12, 18);
+  const complain = add(model, 'ToastShow', 12, 36);
   complain.raw.message = parseExpression('"App usage check failed:\\n{usageError}"');
 
   connect(model, begin.id, 'onComplete', defaults.id);
-  connect(model, defaults.id, 'onComplete', call.id);
+  connect(model, defaults.id, 'onComplete', needsApp.id);
+  connect(model, needsApp.id, 'onPositive', pick.id);
+  connect(model, needsApp.id, 'onNegative', call.id); // payload already named one
+  connect(model, pick.id, 'onPositive', chosen.id);
+  // pick's NO port stays open: cancelling the dialog just ends the fiber.
+  connect(model, chosen.id, 'onComplete', call.id);
   connect(model, call.id, 'onComplete', worked.id);
   connect(model, worked.id, 'onPositive', log.id);
   connect(model, worked.id, 'onNegative', complain.id);
@@ -147,17 +194,22 @@ export function buildFlow(): FlowModel {
        : (#usageParts = 2 ? usageParts[0] * 60 + usageParts[1] : 0)`,
   );
 
+  // "no record" is worth saying out loud: `dumpsys` answers the same way for an
+  // app that was not opened today and for a package name that does not exist,
+  // and "0h 0m 0s" reads like a measurement rather than an absence.
   const text = add(model, 'VariableAssign', 20, 36);
   text.raw.variable = variableRef('usageText');
-  text.raw.value = parseExpression(`durationFormat(usageSeconds, "H'h 'm'm 's's'")`);
+  text.raw.value = parseExpression(
+    `#usageParts < 2 ? "no usage recorded today" : durationFormat(usageSeconds, "H'h 'm'm 's's'")`,
+  );
 
   const failed = add(model, 'VariableAssign', 28, 18);
   failed.raw.variable = variableRef('usageError');
   failed.raw.value = parseExpression('"ADB exited {usageExit}: " ++ trim(usageStderr)');
 
-  // Both failure routes agree on a defined, zero result before returning.
+  // Both failure routes agree on a defined result before returning.
   const zero = add(model, 'DestructuringAssign', 28, 24);
-  zero.raw.value = parseExpression('[0, "0h 0m 0s"]');
+  zero.raw.value = parseExpression('[0, "unknown"]');
   zero.raw.variables = vars('usageSeconds', 'usageText');
 
   connect(model, call.id, 'onChildFiber', guard.id);
@@ -170,6 +222,35 @@ export function buildFlow(): FlowModel {
   connect(model, parts.id, 'onComplete', seconds.id);
   connect(model, seconds.id, 'onComplete', text.id);
   connect(model, failed.id, 'onComplete', zero.id);
+
+  // ---- second beginning: what is actually installed on the TV -------------
+
+  // Guessing a package name produces a confident wrong answer, so the flow
+  // carries its own way of reading the real ones off the device.
+  const listBegin = add(model, 'FlowBeginning', 36, 0);
+  listBegin.raw.title = 'List TV apps';
+
+  const listWhere = add(model, 'DestructuringAssign', 36, 6);
+  listWhere.raw.value = parseExpression(`[${JSON.stringify(DEFAULT_HOST)}, 5555]`);
+  listWhere.raw.variables = vars('usageHost', 'usagePort');
+
+  const listAdb = add(model, 'AdbShellCommand', 36, 12);
+  listAdb.raw.host = parseExpression('usageHost');
+  listAdb.raw.port = parseExpression('usagePort');
+  listAdb.raw.security = parseExpression('0');
+  listAdb.raw.alias = parseExpression(JSON.stringify(ADB_ALIAS));
+  listAdb.raw.command = parseExpression(LIST_COMMAND);
+  listAdb.raw.varStdout = variableRef('usageRaw');
+  listAdb.raw.varStderr = variableRef('usageStderr');
+  listAdb.raw.varExitCode = variableRef('usageExit');
+
+  const listShow = add(model, 'DialogMessage', 36, 18);
+  listShow.raw.title = parseExpression('"Apps on {usageHost}"');
+  listShow.raw.message = parseExpression('trim(usageRaw)');
+
+  connect(model, listBegin.id, 'onComplete', listWhere.id);
+  connect(model, listWhere.id, 'onComplete', listAdb.id);
+  connect(model, listAdb.id, 'onComplete', listShow.id);
 
   return model;
 }
