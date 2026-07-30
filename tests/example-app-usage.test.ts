@@ -115,9 +115,18 @@ describe('app usage example', () => {
     // A guessed package name is indistinguishable from an unused app, so the
     // menu has to be extensible from something authoritative.
     const [, lister] = byName(model, 'AdbShellCommand');
-    expect(renderExpression(lister.raw.command as never)).toBe(
-      `"pm list packages -3 | sed 's/^package://' | sort"`,
-    );
+    // No pipeline: each stage is another way to come back empty, and the
+    // tidying belongs in the expression where the result is visible.
+    expect(renderExpression(lister.raw.command as never)).toBe('"pm list packages -3"');
+  });
+
+  it('explains an empty app list rather than showing a blank dialog', () => {
+    const dialog = only(model, 'DialogMessage');
+    const message = renderExpression(dialog.raw.message as never);
+    // `||` yields the left operand only when truthy, and empty text is false.
+    expect(message).toMatch(/^replaceAll\(trim\(usageRaw\)/);
+    expect(message).toContain('usageExit');
+    expect(message).toContain('usageStderr');
   });
 
   it('handles MM:SS and H:MM:SS the way the device prints them', () => {
