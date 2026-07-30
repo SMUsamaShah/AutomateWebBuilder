@@ -74,8 +74,28 @@ const APPS: Record<string, string> = {
   'com.playdigious.deadcells.mobile': 'Dead Cells',
 };
 
-/** Installed third-party packages, one per line, without the `package:` prefix. */
-const LIST_COMMAND = `"pm list packages -3 | sed 's/^package://' | sort"`;
+/**
+ * Installed third-party packages, one per line, each prefixed `package:`.
+ *
+ * No pipeline: every stage is a way for this to come back empty with nothing to
+ * show for it, and the tidying is done in the expression below where the result
+ * is visible. Same lesson as the usage lookup — send the device the simplest
+ * command that answers the question.
+ */
+const LIST_COMMAND = `"pm list packages -3"`;
+
+/**
+ * The package list, or an account of why there isn't one.
+ *
+ * A blank dialog is the worst possible outcome: the block ran, the fiber
+ * continued, and nothing says whether the command failed, returned nothing, or
+ * was never really asked. `||` yields its left operand only when that is
+ * truthy, and an empty text is false, so the diagnosis appears exactly when
+ * there is no list.
+ */
+const LIST_MESSAGE =
+  'replaceAll(trim(usageRaw), "(?m)^package:", "")' +
+  ' || "No packages listed.\\nExit code {usageExit}.\\n{trim(usageStderr) || "No error output."}"';
 
 /**
  * "Show window" — every dialog needs it.
@@ -257,7 +277,7 @@ export function buildFlow(): FlowModel {
 
   const listShow = add(model, 'DialogMessage', 36, 18);
   listShow.raw.title = parseExpression('"Apps on {usageHost}"');
-  listShow.raw.message = parseExpression('trim(usageRaw)');
+  listShow.raw.message = parseExpression(LIST_MESSAGE);
   listShow.raw.startActivity = parseExpression(SHOW_WINDOW);
 
   connect(model, listBegin.id, 'onComplete', listWhere.id);
