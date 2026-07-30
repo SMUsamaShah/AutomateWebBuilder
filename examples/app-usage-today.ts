@@ -78,6 +78,16 @@ const APPS: Record<string, string> = {
 const LIST_COMMAND = `"pm list packages -3 | sed 's/^package://' | sort"`;
 
 /**
+ * "Show window" — every dialog needs it.
+ *
+ * Left unset, a dialog block posts a *notification* and the fiber pauses until
+ * someone taps it; miss the notification and the flow simply hangs. All 298
+ * dialog blocks across the real flows tested set this, bar one. It is not a
+ * default the app fills in, so a freshly created block has to say so.
+ */
+const SHOW_WINDOW = '1';
+
+/**
  * `dumpsys usagestats <pkg>` prints four sections (daily, weekly, monthly,
  * yearly); `grep -A 5` narrows to the daily one and `sed` lifts the quoted
  * value out. `head` guards against a device with more than one user printing a
@@ -121,6 +131,7 @@ export function buildFlow(): FlowModel {
   pick.raw.title = parseExpression('"Usage on the TV today"');
   pick.raw.choiceTitles = parseExpression('usageApps');
   pick.raw.varSelectedIndices = variableRef('usageChoice');
+  pick.raw.startActivity = parseExpression(SHOW_WINDOW);
 
   // Given a dictionary the dialog shows the values and returns the keys, and
   // the result is always an array even for a single choice.
@@ -247,6 +258,7 @@ export function buildFlow(): FlowModel {
   const listShow = add(model, 'DialogMessage', 36, 18);
   listShow.raw.title = parseExpression('"Apps on {usageHost}"');
   listShow.raw.message = parseExpression('trim(usageRaw)');
+  listShow.raw.startActivity = parseExpression(SHOW_WINDOW);
 
   connect(model, listBegin.id, 'onComplete', listWhere.id);
   connect(model, listWhere.id, 'onComplete', listAdb.id);

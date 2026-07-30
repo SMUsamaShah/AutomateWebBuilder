@@ -47,6 +47,16 @@ describe('app usage example', () => {
     expect(model.blocks.filter((b) => !seen.has(b.id)).map((b) => b.id)).toEqual([]);
   });
 
+  it('shows every dialog as a window rather than a notification', () => {
+    // Unset, the block posts a notification and the fiber waits for a tap that
+    // may never come — the flow just hangs. Nothing on this side detects it.
+    const dialogs = model.blocks.filter((b) => /^Dialog/.test(b.entry?.name ?? ''));
+    expect(dialogs.length).toBeGreaterThan(0);
+    for (const d of dialogs) {
+      expect(renderExpression(d.raw.startActivity as never), d.entry!.name).toBe('1');
+    }
+  });
+
   it('picks the app from a dictionary, so the choice is already a package', () => {
     const pick = only(model, 'DialogChoice');
     // Automate shows a dictionary's values and returns its keys.

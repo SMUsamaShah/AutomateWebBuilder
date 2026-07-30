@@ -268,6 +268,27 @@ The two that bite:
 > node per call, so **`fromModel()` merges them by name on save**. You get this
 > for free; do not defeat it by writing the graph some other way.
 
+### An unset field is not always a sensible default
+
+`createBlock()` starts every argument at `null`, which is what the *file* format
+calls "unset" — but it is not always what the app's own editor would have
+written, and the difference is invisible until the flow runs.
+
+The one that hurts: **`startActivity` on any `Dialog…` block** ("Show window").
+Left null the block posts a *notification* and the fiber pauses until someone
+taps it — miss it and the flow simply hangs, having logged the block as
+executed. All 298 dialog blocks across the real flows tested set it to `1`, bar
+one.
+
+```ts
+dialog.raw.startActivity = parseExpression('1');
+```
+
+The general rule: before shipping a newly created block, compare it against the
+same block in a flow the app wrote. `npm run explain` on a real flow prints
+every argument, so a diff against yours takes seconds and catches the fields the
+app fills in that a fresh block leaves empty.
+
 ```ts
 import { parseExpression } from './src/flo/exprparse';
 import {

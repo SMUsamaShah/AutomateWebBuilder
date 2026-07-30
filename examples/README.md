@@ -147,7 +147,10 @@ split yields one field — reported as `"no usage recorded today"` rather than
 
 Confirmed working on the device: connects, reads `dumpsys`, parses, and returns.
 
-The first build reached every block in the right order but every variable read
-back empty — separately-built `I3.l` nodes sharing a name are separate variables
-to Automate, which the encoder now merges on save. The picker and the app-list
-beginning were added afterwards and have not been run on hardware.
+Two bugs found by running it, both invisible from this side:
+
+- Every variable read back empty. Separately-built `I3.l` nodes sharing a name
+  are separate variables to Automate; the encoder now merges them on save.
+- The dialogs never appeared and the fiber hung. A `Dialog…` block with
+  `startActivity` unset posts a notification instead of a window and waits for a
+  tap. Every dialog in every real flow sets it; a freshly created block does not.
