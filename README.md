@@ -153,7 +153,7 @@ round-tripped byte-for-byte.
 
 `npm run lint` catches that class of mistake. Its rules come from two
 independent places — Automate's own runtime guards, decompiled, and a corpus of
-~390 community flows by ~250 authors — and every finding carries its evidence:
+~1,100 community flows by ~700 authors — and every finding carries its evidence:
 
 ```
 error   #7 HTTP request: url is required — the app throws
@@ -162,22 +162,30 @@ warning #4 Dialog choice?: startActivity is unset, but 300 of 300 real blocks
         of this type set it
 ```
 
-On those 390 real flows it reports **0 errors**, which is the point: flows that
-work should be silent.
+On 1,134 real flows — 142,931 blocks — it reports **0 errors**, which is the
+point: flows that work should be silent.
 
 Build your own corpus and point the tools at it:
 
 ```bash
-npx tsx tools/fetch-community.ts corpus --max 400   # public community flows
+# Biggest flows first, capped per author so no one person skews the statistics
+npx tsx tools/fetch-community.ts corpus --max 900 --min-statements 30
 npm run audit -- corpus                             # what does this library get wrong?
 npx tsx tools/mine-conventions.ts corpus > src/data/conventions.json
 ```
 
 `npm run audit` is the counterpart to `npm test`: the test suite needs a corpus
 it passes, this one is meant to be pointed at flows written by strangers and to
-come back with a list. On 400 community flows it currently reports 378 fully
-clean and 22 it cannot read — 9 of which Automate 1.51 also refuses, 3 saved by
-a newer Automate than the schema knows, and 10 that are ours to fix.
+come back with a list. On 1,279 flows it currently reports:
+
+| | |
+| --- | --- |
+| fully clean | 1,133 (89%) |
+| block types exercised against real bytes | 332 of 410 |
+| unreadable — legacy type ids Automate 1.51 also refuses | 73 |
+| unreadable — **our bug**, old-format desync (v30–v111) | 58 |
+| unreadable — newer format than the schema (v113/v114) | 12 |
+| corrupt uploads (nonsense version, bad varint) | 3 |
 
 For a quick round trip through readable text, **Export JSON** turns the flow into
 a flat document:

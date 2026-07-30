@@ -347,8 +347,12 @@ export function validateModel(model: FlowModel): string[] {
         problems.push(`${where}.${op.f} is a port; connect() it instead of assigning type ${t}`);
       } else if (kind === 'variable-array') {
         for (const item of (value as { _arr?: unknown[] })?._arr ?? []) {
+          // A null entry is legal and means "discard this position": the app
+          // null-checks each slot (`if (lVar != null)` in DestructuringAssign),
+          // which is how `[a, , c]` skips the middle element. Real flows do it.
+          if (item === null || item === undefined) continue;
           if (typeOf(item) !== 102) {
-            problems.push(`${where}.${op.f} entries must be variable references`);
+            problems.push(`${where}.${op.f} entries must be variable references or null`);
             break;
           }
         }

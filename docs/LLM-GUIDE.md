@@ -315,7 +315,12 @@ if (problems.length) throw new Error(problems.join('\n'));
 
 It reports wrong-typed arguments, ports assigned instead of connected, dangling
 connections, and fields gated above the flow's format version (§9). It is clean
-on unmodified real flows, so anything it reports is yours.
+across the 1,134-flow corpus, so in practice anything it reports on a flow you
+edited is yours — but treat that as a strong prior, not a proof. It has been
+wrong once already: it rejected a `null` inside a destructuring assign's
+variable list, which is legal and means "skip this position". If it flags
+something in a flow you have not touched, check the app's source before
+believing it.
 
 ### Expression syntax, briefly
 

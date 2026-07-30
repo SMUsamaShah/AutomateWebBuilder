@@ -275,14 +275,22 @@ export function buildFlow(): FlowModel {
   listAdb.raw.varStderr = variableRef('usageStderr');
   listAdb.raw.varExitCode = variableRef('usageExit');
 
-  const listShow = add(model, 'DialogMessage', 36, 18);
+  // Also to the flow log, because a dialog cannot be copied out of. The log
+  // file is shareable from the app, which is how the list gets somewhere it can
+  // be pasted into the menu above.
+  const listLog = add(model, 'LogAppend', 36, 18);
+  listLog.raw.message = parseExpression(`"Apps on {usageHost}:\\n" ++ (${LIST_MESSAGE})`);
+  listLog.raw.whenLogging = parseExpression('0');
+
+  const listShow = add(model, 'DialogMessage', 36, 24);
   listShow.raw.title = parseExpression('"Apps on {usageHost}"');
   listShow.raw.message = parseExpression(LIST_MESSAGE);
   listShow.raw.startActivity = parseExpression(SHOW_WINDOW);
 
   connect(model, listBegin.id, 'onComplete', listWhere.id);
   connect(model, listWhere.id, 'onComplete', listAdb.id);
-  connect(model, listAdb.id, 'onComplete', listShow.id);
+  connect(model, listAdb.id, 'onComplete', listLog.id);
+  connect(model, listLog.id, 'onComplete', listShow.id);
 
   return model;
 }
