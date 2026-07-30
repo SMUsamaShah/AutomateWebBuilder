@@ -56,25 +56,6 @@ const ADB_ALIAS = 'adb-400db59ad1d7b389ba138dd73d9bef79';
 const DEFAULT_HOST = '192.168.0.30';
 
 /**
- * The picker's menu, package -> label.
- *
- * `Dialog choice?` given a dictionary shows the *values* and assigns the
- * *keys*, so the selection is already a package name and needs no lookup.
- *
- * Only the four packages seen in working flows are listed. A guessed package
- * name is worse than a missing one: `dumpsys` answers for an app that is not
- * installed exactly as it does for one that has not been opened today, so a
- * typo reads as a confident "not used". Run the flow's "List TV apps"
- * beginning to get the real names off the device and add them here.
- */
-const APPS: Record<string, string> = {
-  'com.google.android.youtube.tvkids': 'YouTube Kids',
-  'com.google.android.youtube.tv': 'YouTube',
-  'com.retroarch': 'RetroArch',
-  'com.playdigious.deadcells.mobile': 'Dead Cells',
-};
-
-/**
  * Installed third-party packages, one per line, each prefixed `package:`.
  *
  * No pipeline: every stage is a way for this to come back empty with nothing to
@@ -93,9 +74,11 @@ const LIST_COMMAND = `"pm list packages -3"`;
  * truthy, and an empty text is false, so the diagnosis appears exactly when
  * there is no list.
  */
-const LIST_MESSAGE =
-  'replaceAll(trim(usageRaw), "(?m)^package:", "")' +
-  ' || "No packages listed.\\nExit code {usageExit}.\\n{trim(usageStderr) || "No error output."}"';
+const LIST_FAILURE =
+  '"No packages listed.\\nExit code {usageExit}.\\n{trim(usageStderr) || "No error output."}"';
+
+/** The package list, or an account of why there isn't one. */
+const LIST_MESSAGE = `replaceAll(trim(usageRaw), "(?m)^package:", "") || ${LIST_FAILURE}`;
 
 /**
  * "Show window" — every dialog needs it.
@@ -128,66 +111,107 @@ function add(model: FlowModel, name: string, x: number, y: number): Block {
 export function buildFlow(): FlowModel {
   const model = emptyModel();
 
-  // ---- caller / demo path -------------------------------------------------
+  // ---- caller path: list the device's apps, pick some, report on each ----
 
   const begin = model.blocks[0];
   begin.raw.title = 'App usage today';
   begin.raw.varPayload = variableRef('args');
 
-  // A payload supplies the package; without one the picker below asks.
   const defaults = add(model, 'DestructuringAssign', 4, 6);
   defaults.raw.value = parseExpression(
-    `[args["package"],
-      args["host"] || ${JSON.stringify(DEFAULT_HOST)},
-      args["port"] || 5555,
-      ${JSON.stringify(APPS)}]`,
+    `[args["host"] || ${JSON.stringify(DEFAULT_HOST)}, args["port"] || 5555, ""]`,
   );
-  defaults.raw.variables = vars('usagePackage', 'usageHost', 'usagePort', 'usageApps');
+  defaults.raw.variables = vars('usageHost', 'usagePort', 'usageReport');
 
-  const needsApp = add(model, 'ExpressionDecision', 4, 12);
-  needsApp.raw.expression = parseExpression('!usagePackage');
+  // A payload naming a package skips the listing and the dialog entirely, so
+  // the flow stays callable from another flow. It joins the same loop below by
+  // faking a one-element list with that element selected, rather than carrying
+  // a second copy of the reporting path.
+  const given = add(model, 'ExpressionDecision', 4, 12);
+  given.raw.expression = parseExpression('args["package"]');
 
-  const pick = add(model, 'DialogChoice', 4, 18);
-  pick.raw.title = parseExpression('"Usage on the TV today"');
+  const only = add(model, 'DestructuringAssign', 12, 12);
+  only.raw.value = parseExpression('[[args["package"]], [0]]');
+  only.raw.variables = vars('usageApps', 'usageChoice');
+
+  const listAdb = add(model, 'AdbShellCommand', 4, 18);
+  listAdb.raw.host = parseExpression('usageHost');
+  listAdb.raw.port = parseExpression('usagePort');
+  listAdb.raw.security = parseExpression('0');
+  listAdb.raw.alias = parseExpression(JSON.stringify(ADB_ALIAS));
+  listAdb.raw.command = parseExpression(LIST_COMMAND);
+  listAdb.raw.varStdout = variableRef('usageRaw');
+  listAdb.raw.varStderr = variableRef('usageStderr');
+  listAdb.raw.varExitCode = variableRef('usageExit');
+
+  // The menu is whatever the device actually has, so there is nothing to keep
+  // in step and no package name to guess wrong.
+  const parseList = add(model, 'VariableAssign', 4, 24);
+  parseList.raw.variable = variableRef('usageApps');
+  parseList.raw.value = parseExpression(
+    'sort(split(replaceAll(trim(usageRaw), "(?m)^package:", ""), "\\n"))',
+  );
+
+  const gotList = add(model, 'ExpressionDecision', 4, 30);
+  gotList.raw.expression = parseExpression('usageApps');
+
+  const noList = add(model, 'DialogMessage', 12, 30);
+  noList.raw.title = parseExpression('"No apps listed"');
+  noList.raw.message = parseExpression(LIST_FAILURE);
+  noList.raw.startActivity = parseExpression(SHOW_WINDOW);
+
+  const pick = add(model, 'DialogChoice', 4, 36);
+  pick.raw.title = parseExpression('"Usage today on {usageHost}"');
   pick.raw.choiceTitles = parseExpression('usageApps');
+  pick.raw.multiselect = parseExpression('1');
   pick.raw.varSelectedIndices = variableRef('usageChoice');
   pick.raw.startActivity = parseExpression(SHOW_WINDOW);
 
-  // Given a dictionary the dialog shows the values and returns the keys, and
-  // the result is always an array even for a single choice.
-  const chosen = add(model, 'VariableAssign', 4, 24);
-  chosen.raw.variable = variableRef('usagePackage');
-  chosen.raw.value = parseExpression('usageChoice[0]');
+  // Given an array the dialog returns indices, not values.
+  const each = add(model, 'ForEach', 4, 42);
+  each.raw.container = parseExpression('usageChoice');
+  each.raw.varEntryValue = variableRef('usageIndex');
 
-  const call = add(model, 'Subroutine', 4, 30);
+  const pickPackage = add(model, 'VariableAssign', 4, 48);
+  pickPackage.raw.variable = variableRef('usagePackage');
+  pickPackage.raw.value = parseExpression('usageApps[usageIndex]');
+
+  const call = add(model, 'Subroutine', 4, 54);
   call.raw.returnVariables = vars('usageSeconds', 'usageText', 'usageError');
 
-  const worked = add(model, 'ExpressionDecision', 4, 36);
-  worked.raw.expression = parseExpression('!usageError');
-
-  const log = add(model, 'LogAppend', 4, 42);
-  log.raw.message = parseExpression(
-    '"{usagePackage} on {usageHost}: {usageText} ({usageSeconds} s)"',
+  const accumulate = add(model, 'VariableAssign', 4, 60);
+  accumulate.raw.variable = variableRef('usageReport');
+  accumulate.raw.value = parseExpression(
+    'usageReport ++ usagePackage ++ ": " ++ (usageError || usageText) ++ "\\n"',
   );
-  log.raw.whenLogging = parseExpression('0');
 
-  const report = add(model, 'ToastShow', 4, 48);
-  report.raw.message = parseExpression('"{usageApps[usagePackage] || usagePackage}\\n{usageText}"');
+  const logReport = add(model, 'LogAppend', 12, 42);
+  logReport.raw.message = parseExpression('"Usage today on {usageHost}:\\n" ++ usageReport');
+  logReport.raw.whenLogging = parseExpression('0');
 
-  const complain = add(model, 'ToastShow', 12, 36);
-  complain.raw.message = parseExpression('"App usage check failed:\\n{usageError}"');
+  const showReport = add(model, 'DialogMessage', 12, 48);
+  showReport.raw.title = parseExpression('"Usage today on {usageHost}"');
+  showReport.raw.message = parseExpression('usageReport || "Nothing selected."');
+  showReport.raw.startActivity = parseExpression(SHOW_WINDOW);
 
   connect(model, begin.id, 'onComplete', defaults.id);
-  connect(model, defaults.id, 'onComplete', needsApp.id);
-  connect(model, needsApp.id, 'onPositive', pick.id);
-  connect(model, needsApp.id, 'onNegative', call.id); // payload already named one
-  connect(model, pick.id, 'onPositive', chosen.id);
+  connect(model, defaults.id, 'onComplete', given.id);
+  connect(model, given.id, 'onPositive', only.id);
+  connect(model, given.id, 'onNegative', listAdb.id);
+  connect(model, only.id, 'onComplete', each.id);
+  connect(model, listAdb.id, 'onComplete', parseList.id);
+  connect(model, parseList.id, 'onComplete', gotList.id);
+  connect(model, gotList.id, 'onPositive', pick.id);
+  connect(model, gotList.id, 'onNegative', noList.id);
+  connect(model, pick.id, 'onPositive', each.id);
   // pick's NO port stays open: cancelling the dialog just ends the fiber.
-  connect(model, chosen.id, 'onComplete', call.id);
-  connect(model, call.id, 'onComplete', worked.id);
-  connect(model, worked.id, 'onPositive', log.id);
-  connect(model, worked.id, 'onNegative', complain.id);
-  connect(model, log.id, 'onComplete', report.id);
+  connect(model, each.id, 'onEachElement', pickPackage.id);
+  connect(model, each.id, 'onComplete', logReport.id);
+  connect(model, pickPackage.id, 'onComplete', call.id);
+  connect(model, call.id, 'onComplete', accumulate.id);
+  // The DO chain has to return to the For each block to run the next element.
+  connect(model, accumulate.id, 'onComplete', each.id);
+  connect(model, logReport.id, 'onComplete', showReport.id);
 
   // ---- the subroutine -----------------------------------------------------
 
@@ -265,19 +289,19 @@ export function buildFlow(): FlowModel {
   listWhere.raw.value = parseExpression(`[${JSON.stringify(DEFAULT_HOST)}, 5555]`);
   listWhere.raw.variables = vars('usageHost', 'usagePort');
 
-  const listAdb = add(model, 'AdbShellCommand', 36, 12);
-  listAdb.raw.host = parseExpression('usageHost');
-  listAdb.raw.port = parseExpression('usagePort');
-  listAdb.raw.security = parseExpression('0');
-  listAdb.raw.alias = parseExpression(JSON.stringify(ADB_ALIAS));
-  listAdb.raw.command = parseExpression(LIST_COMMAND);
-  listAdb.raw.varStdout = variableRef('usageRaw');
-  listAdb.raw.varStderr = variableRef('usageStderr');
-  listAdb.raw.varExitCode = variableRef('usageExit');
+  const listRaw = add(model, 'AdbShellCommand', 36, 12);
+  listRaw.raw.host = parseExpression('usageHost');
+  listRaw.raw.port = parseExpression('usagePort');
+  listRaw.raw.security = parseExpression('0');
+  listRaw.raw.alias = parseExpression(JSON.stringify(ADB_ALIAS));
+  listRaw.raw.command = parseExpression(LIST_COMMAND);
+  listRaw.raw.varStdout = variableRef('usageRaw');
+  listRaw.raw.varStderr = variableRef('usageStderr');
+  listRaw.raw.varExitCode = variableRef('usageExit');
 
   // Also to the flow log, because a dialog cannot be copied out of. The log
   // file is shareable from the app, which is how the list gets somewhere it can
-  // be pasted into the menu above.
+  // be pasted somewhere useful.
   const listLog = add(model, 'LogAppend', 36, 18);
   listLog.raw.message = parseExpression(`"Apps on {usageHost}:\\n" ++ (${LIST_MESSAGE})`);
   listLog.raw.whenLogging = parseExpression('0');
@@ -288,8 +312,8 @@ export function buildFlow(): FlowModel {
   listShow.raw.startActivity = parseExpression(SHOW_WINDOW);
 
   connect(model, listBegin.id, 'onComplete', listWhere.id);
-  connect(model, listWhere.id, 'onComplete', listAdb.id);
-  connect(model, listAdb.id, 'onComplete', listLog.id);
+  connect(model, listWhere.id, 'onComplete', listRaw.id);
+  connect(model, listRaw.id, 'onComplete', listLog.id);
   connect(model, listLog.id, 'onComplete', listShow.id);
 
   return model;

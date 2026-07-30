@@ -57,31 +57,54 @@ describe('app usage example', () => {
     }
   });
 
-  it('picks the app from a dictionary, so the choice is already a package', () => {
+  it('builds its menu from the device, not from a hardcoded list', () => {
     const pick = only(model, 'DialogChoice');
-    // Automate shows a dictionary's values and returns its keys.
     expect(renderExpression(pick.raw.choiceTitles as never)).toBe('usageApps');
+    expect(renderExpression(pick.raw.multiselect as never)).toBe('1');
     expect(renderExpression(pick.raw.varSelectedIndices as never)).toBe('usageChoice');
 
-    const chosen = model.connections.find((c) => c.from === pick.id && c.port === 'onPositive');
-    const assign = model.blocks.find((b) => b.id === chosen!.to)!;
-    // The result is an array even for a single choice.
-    expect(renderExpression(assign.raw.value as never)).toBe('usageChoice[0]');
-    expect(renderExpression(assign.raw.variable as never)).toBe('usagePackage');
+    // usageApps is parsed from `pm list packages`, so no package name is
+    // written down anywhere and none can drift out of date.
+    const source = byName(model, 'VariableAssign').find(
+      (b) => renderExpression(b.raw.variable as never) === 'usageApps',
+    )!;
+    expect(renderExpression(source.raw.value as never)).toMatch(/^sort\(split\(replaceAll\(trim\(usageRaw\)/);
 
-    // Cancelling must not fall through to a lookup with no package.
-    expect(model.connections.find((c) => c.from === pick.id && c.port === 'onNegative')).toBeUndefined();
+    // Cancelling must not fall through to a lookup with nothing selected.
+    expect(
+      model.connections.find((c) => c.from === pick.id && c.port === 'onNegative'),
+    ).toBeUndefined();
   });
 
-  it('skips the picker when a payload already named the package', () => {
+  it('loops the selection back into the For each, or it runs once', () => {
+    const each = only(model, 'ForEach');
+    expect(renderExpression(each.raw.container as never)).toBe('usageChoice');
+
+    // Automate requires the DO chain to return to the block's IN dot;
+    // without it the iteration stops after the first element.
+    const seen = new Set<string>();
+    let at = model.connections.find((c) => c.from === each.id && c.port === 'onEachElement')!.to;
+    let loops = false;
+    while (at && !seen.has(at)) {
+      seen.add(at);
+      const next = model.connections.find((c) => c.from === at && c.port === 'onComplete');
+      if (next?.to === each.id) { loops = true; break; }
+      at = next?.to as string;
+    }
+    expect(loops, 'DO chain never returns to the For each').toBe(true);
+  });
+
+  it('skips listing and picking when a payload already named the package', () => {
     const gate = byName(model, 'ExpressionDecision').find(
-      (b) => renderExpression(b.raw.expression as never) === '!usagePackage',
+      (b) => renderExpression(b.raw.expression as never) === 'args["package"]',
     )!;
     const yes = model.connections.find((c) => c.from === gate.id && c.port === 'onPositive')!;
     const no = model.connections.find((c) => c.from === gate.id && c.port === 'onNegative')!;
-    const target = (id: string) => model.blocks.find((b) => b.id === id)!.entry?.name;
-    expect(target(yes.to)).toBe('DialogChoice');
-    expect(target(no.to)).toBe('Subroutine');
+    const block = (id: string) => model.blocks.find((b) => b.id === id)!;
+    // It joins the same loop by faking a one-element list with that element
+    // selected, rather than carrying a second copy of the reporting path.
+    expect(renderExpression(block(yes.to).raw.value as never)).toBe('[[args["package"]], [0]]');
+    expect(block(no.to).entry?.name).toBe('AdbShellCommand');
   });
 
   it('enters the subroutine body through the NEW port', () => {
@@ -101,7 +124,9 @@ describe('app usage example', () => {
   });
 
   it('sends the verified dumpsys pipeline, unescaped, to the device', () => {
-    const [adb] = byName(model, 'AdbShellCommand');
+    const adb = byName(model, 'AdbShellCommand').find((b) =>
+      renderExpression(b.raw.command as never).includes('dumpsys'),
+    )!;
     // The concatenation's right operand is the literal the device receives.
     const tail = (adb.raw.command as { f4654Y: { f4649X: string } }).f4654Y.f4649X;
     expect(tail).toBe(
@@ -113,15 +138,19 @@ describe('app usage example', () => {
 
   it('can read the real package names off the device', () => {
     // A guessed package name is indistinguishable from an unused app, so the
-    // menu has to be extensible from something authoritative.
-    const [, lister] = byName(model, 'AdbShellCommand');
+    // menu comes from the device rather than from memory.
+    const lister = byName(model, 'AdbShellCommand').find((b) =>
+      renderExpression(b.raw.command as never).includes('pm list'),
+    )!;
     // No pipeline: each stage is another way to come back empty, and the
     // tidying belongs in the expression where the result is visible.
     expect(renderExpression(lister.raw.command as never)).toBe('"pm list packages -3"');
   });
 
   it('explains an empty app list rather than showing a blank dialog', () => {
-    const dialog = only(model, 'DialogMessage');
+    const dialog = byName(model, 'DialogMessage').find((b) =>
+      renderExpression(b.raw.message as never).includes('replaceAll'),
+    )!;
     const message = renderExpression(dialog.raw.message as never);
     // `||` yields the left operand only when truthy, and empty text is false.
     expect(message).toMatch(/^replaceAll\(trim\(usageRaw\)/);

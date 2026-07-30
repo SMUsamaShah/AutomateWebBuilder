@@ -57,50 +57,37 @@ Returned:
 
 ### Choosing the app
 
-Three ways, in the order you will actually reach for them.
+**Run it and pick from a list.** `Flow beginning "App usage today"` asks the TV
+what it has installed (`pm list packages -3`), shows the result as a
+multi-select dialog, then reports the time for every app you ticked — one line
+each, in one dialog, and in the flow log so it can be copied out.
 
-**Tap the flow and pick from a menu.** `Flow beginning "App usage today"` shows a
-`Dialog choice?` when no package was supplied. Automate's dialog, given a
-dictionary, displays the *values* and returns the *keys* — so the menu is
-`{package: "Friendly name"}` and the selection is already a package name, with
-no lookup in between. Edit `APPS` in the script (or the `Destructuring assign`
-in block #2, in the editor) to change the menu.
+Nothing is hardcoded. The menu is whatever the device actually has, so there is
+no list to keep in step and no package name that can quietly go stale. That
+matters more than convenience here: `dumpsys usagestats` answers for a package
+that is not installed exactly as it does for one that has not been opened today,
+so a typo would report "no usage recorded" — a confident wrong answer.
 
-**Start it from another flow with a payload**, which skips the dialog:
+**Or start it from another flow with a payload**, which skips both the listing
+and the dialog:
 
 ```
 {"package": "com.playdigious.deadcells.mobile", "host": "192.168.0.34"}
 ```
 
+That path joins the same reporting loop by presenting itself as a one-element
+list with that element selected, rather than carrying a second copy of it.
 Anything the payload omits falls back to a default — the Android TV at
 `192.168.0.30`, port `5555`.
 
-**Call the subroutine directly** from a flow of your own (below), setting
+**Or call the subroutine directly** from a flow of your own (below), setting
 `usagePackage` yourself.
 
-### Finding package names
+### Listing the apps on their own
 
-`Flow beginning "List TV apps"` runs `pm list packages -3` on the TV and shows
-what is installed, so the menu can be extended from the device rather than from
-memory.
-
-Use it rather than guessing. `dumpsys usagestats` answers for a package that is
-not installed exactly as it does for one that has not been opened today, so a
-mistyped name reports "no usage recorded today" — a confident wrong answer. Only
-the four packages seen in working flows ship in the menu for that reason.
-
-### Calling it from your own flow
-
-1. Import this flow, open it, and copy the eight blocks in the right-hand
-   column (`Failure catch` down to `Destructuring assign`) into your flow.
-2. Set `usagePackage`, `usageHost` and `usagePort`.
-3. Add a `Subroutine` block, point its `NEW` port at the `Failure catch`, and
-   list `usageSeconds`, `usageText`, `usageError` as its returned variables.
-4. Continue from its `OK` port — the results are there.
-
-The ADB blocks use keychain alias `adb-400db59ad1d7b389ba138dd73d9bef79`, the
-same one the existing TV flows use, so no new device pairing is needed. Change
-it in the script if you build this for a different device.
+`Flow beginning "List TV apps"` does just the listing, showing it and writing it
+to the flow log — useful when you want the package names somewhere you can paste
+them.
 
 ### How it reads the usage
 
