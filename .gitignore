@@ -11,3 +11,7 @@ public/fonts/AutomateIcons.ttf
 # Personal flow files used as local test fixtures
 fixtures/
 *.flo
+
+# Corpus of community flows used as lint/audit evidence — other people's work,
+# fetched with tools/fetch-community.ts, never redistributed here.
+corpus/

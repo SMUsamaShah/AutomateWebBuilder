@@ -1,0 +1,358 @@
+{
+ "com.llamalab.automate.stmt.AccountGenericAdd": [
+  "accountName"
+ ],
+ "com.llamalab.automate.stmt.AdbAction": [
+  "alias"
+ ],
+ "com.llamalab.automate.stmt.AdbProtocolSet": [
+  "alias"
+ ],
+ "com.llamalab.automate.stmt.AdbShellCommand": [
+  "alias",
+  "command"
+ ],
+ "com.llamalab.automate.stmt.AppClearCache": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppKill": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppKillBackground": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppNotificationsEnabled": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppNotificationsPriorityGet": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppNotificationsPrioritySet": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppNotificationsSetState": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppNotificationsVisibilityGet": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppNotificationsVisibilitySet": [
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppOpMode": [
+  "opstr",
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AppOpModeSet": [
+  "opstr",
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.AudioVolumeSet": [
+  "level"
+ ],
+ "com.llamalab.automate.stmt.BarcodeScan": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.BluetoothGattRead": [
+  "characteristicUuid",
+  "serviceUuid"
+ ],
+ "com.llamalab.automate.stmt.BroadcastReceive": [
+  "action"
+ ],
+ "com.llamalab.automate.stmt.CalendarEventAdd": [
+  "calendarUri"
+ ],
+ "com.llamalab.automate.stmt.CalendarEventGet": [
+  "eventUri"
+ ],
+ "com.llamalab.automate.stmt.CloudMessageSend": [
+  "toAccount"
+ ],
+ "com.llamalab.automate.stmt.ContentChanged": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.ContentDelete": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.ContentInsert": [
+  "uri",
+  "values"
+ ],
+ "com.llamalab.automate.stmt.ContentProviderCall": [
+  "authority",
+  "method"
+ ],
+ "com.llamalab.automate.stmt.ContentQuery": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.ContentRead": [
+  "sourceUri"
+ ],
+ "com.llamalab.automate.stmt.ContentUpdate": [
+  "uri",
+  "values"
+ ],
+ "com.llamalab.automate.stmt.ContentView": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.ContentWrite": [
+  "sourcePath",
+  "targetUri"
+ ],
+ "com.llamalab.automate.stmt.CyanogenModProfileSet": [
+  "uuid"
+ ],
+ "com.llamalab.automate.stmt.DatabaseModify": [
+  "databaseFile"
+ ],
+ "com.llamalab.automate.stmt.DatabaseQuery": [
+  "databaseFile"
+ ],
+ "com.llamalab.automate.stmt.DestructuringAssign": [
+  "variables"
+ ],
+ "com.llamalab.automate.stmt.EmailSend": [
+  "host"
+ ],
+ "com.llamalab.automate.stmt.FileApkExtract": [
+  "sourceFile"
+ ],
+ "com.llamalab.automate.stmt.FileCopy": [
+  "sourcePath",
+  "targetPath"
+ ],
+ "com.llamalab.automate.stmt.FileDelete": [
+  "path"
+ ],
+ "com.llamalab.automate.stmt.FileExists": [
+  "path"
+ ],
+ "com.llamalab.automate.stmt.FileList": [
+  "path"
+ ],
+ "com.llamalab.automate.stmt.FileMakeDirectory": [
+  "path"
+ ],
+ "com.llamalab.automate.stmt.FileMonitor": [
+  "path"
+ ],
+ "com.llamalab.automate.stmt.FileMove": [
+  "sourcePath",
+  "targetPath"
+ ],
+ "com.llamalab.automate.stmt.FileMultipartExtract": [
+  "boundaryMark",
+  "sourceFile"
+ ],
+ "com.llamalab.automate.stmt.FileRead": [
+  "sourceFile"
+ ],
+ "com.llamalab.automate.stmt.FileWrite": [
+  "targetFile"
+ ],
+ "com.llamalab.automate.stmt.FlowStart": [
+  "flowUri"
+ ],
+ "com.llamalab.automate.stmt.FtpAction": [
+  "host"
+ ],
+ "com.llamalab.automate.stmt.FtpDelete": [
+  "host",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.FtpDownload": [
+  "host",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.FtpList": [
+  "host",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.FtpMakeDirectory": [
+  "host",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.FtpTransferAction": [
+  "host"
+ ],
+ "com.llamalab.automate.stmt.FtpUpload": [
+  "host",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.GDriveDelete": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.GDriveDownload": [
+  "localPath",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.GDriveFileExists": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.GDriveList": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.GDriveMakeDirectory": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.GDriveShare": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.GDriveUpload": [
+  "localPath",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.Geocoding": [
+  "locationName"
+ ],
+ "com.llamalab.automate.stmt.GeocodingReverse": [
+  "latitude",
+  "longitude"
+ ],
+ "com.llamalab.automate.stmt.GmailUnreadCount": [
+  "account"
+ ],
+ "com.llamalab.automate.stmt.HttpRequest": [
+  "url"
+ ],
+ "com.llamalab.automate.stmt.ImageLoad": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.ImageSampleColor": [
+  "centerX",
+  "centerY"
+ ],
+ "com.llamalab.automate.stmt.InfraredTransmit": [
+  "pattern"
+ ],
+ "com.llamalab.automate.stmt.InputMethodSet": [
+  "inputMethod"
+ ],
+ "com.llamalab.automate.stmt.KeySend": [
+  "keyCode"
+ ],
+ "com.llamalab.automate.stmt.LocationAt": [
+  "latitude",
+  "longitude"
+ ],
+ "com.llamalab.automate.stmt.LocationMock": [
+  "latitude",
+  "longitude"
+ ],
+ "com.llamalab.automate.stmt.MediaStoreAdd": [
+  "path"
+ ],
+ "com.llamalab.automate.stmt.MediaStoreRemove": [
+  "path"
+ ],
+ "com.llamalab.automate.stmt.MediaTagsRead": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.MmsSend": [
+  "phoneNumber"
+ ],
+ "com.llamalab.automate.stmt.NotificationInteract": [
+  "key"
+ ],
+ "com.llamalab.automate.stmt.OneDriveDelete": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.OneDriveDownload": [
+  "localPath",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.OneDriveFileExists": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.OneDriveList": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.OneDriveMakeDirectory": [
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.OneDriveUpload": [
+  "localPath",
+  "remotePath"
+ ],
+ "com.llamalab.automate.stmt.Ping": [
+  "host"
+ ],
+ "com.llamalab.automate.stmt.QrCodeGenerate": [
+  "content"
+ ],
+ "com.llamalab.automate.stmt.RingtoneSet": [
+  "soundUri"
+ ],
+ "com.llamalab.automate.stmt.ShellCommand": [
+  "command"
+ ],
+ "com.llamalab.automate.stmt.ShellCommandPrivileged": [
+  "command"
+ ],
+ "com.llamalab.automate.stmt.ShellCommandSuperuser": [
+  "command"
+ ],
+ "com.llamalab.automate.stmt.ShortcutUpdate": [
+  "shortcutId"
+ ],
+ "com.llamalab.automate.stmt.SmsSend": [
+  "message",
+  "phoneNumber"
+ ],
+ "com.llamalab.automate.stmt.SoundPlay": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.SpeakPlay": [
+  "message"
+ ],
+ "com.llamalab.automate.stmt.SpeakToFile": [
+  "message"
+ ],
+ "com.llamalab.automate.stmt.SystemPropertyGet": [
+  "name"
+ ],
+ "com.llamalab.automate.stmt.SystemSettingGet": [
+  "name"
+ ],
+ "com.llamalab.automate.stmt.SystemSettingSet": [
+  "name"
+ ],
+ "com.llamalab.automate.stmt.TextRecognition": [
+  "uri"
+ ],
+ "com.llamalab.automate.stmt.TimeZoneSet": [
+  "timeZone"
+ ],
+ "com.llamalab.automate.stmt.UssdRequest": [
+  "request"
+ ],
+ "com.llamalab.automate.stmt.VariablesGive": [
+  "takerFiberUri"
+ ],
+ "com.llamalab.automate.stmt.WakeOnLanSend": [
+  "macAddress"
+ ],
+ "com.llamalab.automate.stmt.WallpaperLiveSet": [
+  "className",
+  "packageName"
+ ],
+ "com.llamalab.automate.stmt.Weather": [
+  "latitude",
+  "longitude"
+ ],
+ "com.llamalab.automate.stmt.ZipCompress": [
+  "sourcePath",
+  "targetPath",
+  "zipFile"
+ ],
+ "com.llamalab.automate.stmt.ZipExtract": [
+  "sourcePath",
+  "targetPath",
+  "zipFile"
+ ],
+ "com.llamalab.automate.stmt.ZipList": [
+  "sourcePath",
+  "zipFile"
+ ]
+}

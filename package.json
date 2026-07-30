@@ -13,7 +13,9 @@
     "build:single": "vite build --config vite.singlefile.config.ts && node scripts/build-singlefile.mjs",
     "explain": "tsx tools/explain-flow.ts",
     "blocks": "tsx tools/blocks.ts",
-    "build:all": "npm run build && npm run build:single"
+    "build:all": "npm run build && npm run build:single",
+    "lint": "tsx tools/lint-flow.ts",
+    "audit": "tsx tools/audit-corpus.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
