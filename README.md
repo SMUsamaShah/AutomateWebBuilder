@@ -140,7 +140,44 @@ To understand an existing flow first:
 ```bash
 npm run explain -- path/to/flow.flo          # execution-order walkthrough
 npm run explain -- path/to/flow.flo --json   # same analysis, machine-readable
+npm run lint -- path/to/flow.flo             # will it actually work on a device?
 ```
+
+## Will it work, not just load?
+
+A `.flo` can be perfectly well-formed and still misbehave on the phone. Two bugs
+shipped from this repo did exactly that: a dialog missing its "Show window" flag
+posted a notification and hung the fiber, and an argument the app null-checks at
+runtime threw the moment its block ran. Both files parsed, validated and
+round-tripped byte-for-byte.
+
+`npm run lint` catches that class of mistake. Its rules come from two
+independent places — Automate's own runtime guards, decompiled, and a corpus of
+~390 community flows by ~250 authors — and every finding carries its evidence:
+
+```
+error   #7 HTTP request: url is required — the app throws
+        RequiredArgumentNullException, and all 133 real blocks of this type set it
+warning #4 Dialog choice?: startActivity is unset, but 300 of 300 real blocks
+        of this type set it
+```
+
+On those 390 real flows it reports **0 errors**, which is the point: flows that
+work should be silent.
+
+Build your own corpus and point the tools at it:
+
+```bash
+npx tsx tools/fetch-community.ts corpus --max 400   # public community flows
+npm run audit -- corpus                             # what does this library get wrong?
+npx tsx tools/mine-conventions.ts corpus > src/data/conventions.json
+```
+
+`npm run audit` is the counterpart to `npm test`: the test suite needs a corpus
+it passes, this one is meant to be pointed at flows written by strangers and to
+come back with a list. On 400 community flows it currently reports 378 fully
+clean and 22 it cannot read — 9 of which Automate 1.51 also refuses, 3 saved by
+a newer Automate than the schema knows, and 10 that are ours to fix.
 
 For a quick round trip through readable text, **Export JSON** turns the flow into
 a flat document:

@@ -53,6 +53,19 @@ const PRECEDENCE: Record<string, number> = {
 const UNARY_PRECEDENCE = 13;
 const ATOM = 100;
 
+/** Depth at which rendering gives up, to survive a cyclic graph. */
+const MAX_DEPTH = 512;
+/**
+ * Marker for a tree too deep to render.
+ *
+ * Deliberately not a bare `…`: real flows contain that character in their own
+ * text (one names a button `"… ->"`), so a test looking for truncation cannot
+ * tell the two apart.
+ */
+export const TRUNCATED = '…<too deep>…';
+/** Marker for an expression node with no rendering rule. */
+export const UNKNOWN = '…<unknown>…';
+
 function isObject(v: unknown): v is FloObject {
   return typeof v === 'object' && v !== null && typeof (v as FloObject)._type === 'number';
 }
@@ -96,11 +109,15 @@ interface Rendered {
 
 function renderNode(v: FloValue, depth: number): Rendered {
   if (v === null || v === undefined) return { text: '', power: ATOM };
-  if (depth > 64) return { text: '…', power: ATOM };
+  // Only a guard against a cyclic graph. Real flows nest far deeper than a
+  // human would guess — the corpus has expression trees 139 levels deep, and a
+  // limit below that silently truncates a field to a marker the user can then
+  // save over the original.
+  if (depth > MAX_DEPTH) return { text: TRUNCATED, power: ATOM };
   if (!isObject(v)) return { text: String(v), power: ATOM };
 
   const rule = table[String(v._type)];
-  if (!rule) return { text: '…', power: ATOM };
+  if (!rule) return { text: UNKNOWN, power: ATOM };
 
   const child = (field: string): Rendered => renderNode(v[field] as FloValue, depth + 1);
   const wrap = (r: Rendered, minPower: number): string =>
@@ -170,8 +187,15 @@ function renderNode(v: FloValue, depth: number): Rendered {
           if (f in v) args.push(renderNode(v[f] as FloValue, depth + 1).text);
         }
       }
+      // Trailing empties are arguments the call simply does not pass. An empty
+      // one *between* others is a null the app kept a slot for, and has to be
+      // written out or the text re-parses with the wrong arity —
+      // `urlDecode(x, , "UTF-8")` is not valid source.
       while (args.length && args[args.length - 1] === '') args.pop();
-      return { text: `${rule.name}(${args.join(', ')})`, power: ATOM };
+      return {
+        text: `${rule.name}(${args.map((a) => (a === '' ? 'null' : a)).join(', ')})`,
+        power: ATOM,
+      };
     }
 
     case 'interp': {
@@ -208,7 +232,7 @@ function renderNode(v: FloValue, depth: number): Rendered {
     }
 
     default:
-      return { text: '…', power: ATOM };
+      return { text: UNKNOWN, power: ATOM };
   }
 }
 

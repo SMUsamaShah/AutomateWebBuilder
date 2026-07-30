@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { toModel } from '../src/flo/model';
-import { renderExpression, isExpression, quote, stringLiteral } from '../src/flo/expr';
+import {
+  renderExpression,
+  isExpression,
+  quote,
+  stringLiteral,
+  TRUNCATED,
+  UNKNOWN,
+} from '../src/flo/expr';
 import { schema } from '../src/flo/codec';
 
 function fixtureFiles(): string[] {
@@ -36,7 +43,9 @@ describe('expression rendering', () => {
           const value = block.raw[op.f];
           if (!isExpression(value)) continue;
           const text = renderExpression(value as never);
-          expect(text, `${block.entry?.name}.${op.f} rendered an unknown node`).not.toContain('…');
+          // Not a bare '…' — real flows use that character in their own text.
+          expect(text, `${block.entry?.name}.${op.f} has no rendering rule`).not.toContain(UNKNOWN);
+          expect(text, `${block.entry?.name}.${op.f} was truncated`).not.toContain(TRUNCATED);
           rendered++;
         }
       }

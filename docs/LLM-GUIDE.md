@@ -277,17 +277,13 @@ written, and the difference is invisible until the flow runs.
 The one that hurts: **`startActivity` on any `Dialog…` block** ("Show window").
 Left null the block posts a *notification* and the fiber pauses until someone
 taps it — miss it and the flow simply hangs, having logged the block as
-executed. All 298 dialog blocks across the real flows tested set it to `1`, bar
-one.
+executed.
 
 ```ts
 dialog.raw.startActivity = parseExpression('1');
 ```
 
-The general rule: before shipping a newly created block, compare it against the
-same block in a flow the app wrote. `npm run explain` on a real flow prints
-every argument, so a diff against yours takes seconds and catches the fields the
-app fills in that a fresh block leaves empty.
+**Run `lintFlow()` — it knows about these.** See §8.
 
 ```ts
 import { parseExpression } from './src/flo/exprparse';
@@ -484,17 +480,56 @@ Do this every time. It takes seconds and catches the failures that matter.
 # 1. The saved file must load again, and the analysis must show your change
 npm run explain -- out.flo
 
-# 2. The library's own guarantees must still hold
+# 2. Will it actually work on a device? (see below — do not skip this)
+npm run lint -- out.flo
+
+# 3. The library's own guarantees must still hold
 FLO_FIXTURES=/dir/with/flo/files npm test
 ```
+
+### `validateModel` and `lintFlow` answer different questions
+
+`validateModel()` asks **will Automate load this file?** — argument types, ports,
+dangling connections. All derivable from the format.
+
+`lintFlow()` asks **will it then work?** Two bugs shipped from this repo passed
+every structural check and still misbehaved on the phone: an argument the app
+null-checks at runtime, and a dialog without `startActivity`. Both files parsed,
+validated, explained and round-tripped perfectly.
+
+Its rules come from the app's own runtime guards plus a corpus of ~390 real
+flows by ~250 authors, and every finding carries its evidence:
+
+```ts
+import { lintFlow, formatFindings } from './src/flo/lint';
+
+const findings = lintFlow(model);
+if (findings.some((f) => f.severity === 'error')) throw new Error(formatFindings(findings));
+console.warn(formatFindings(findings));   // warnings are advice, read them
+```
+
+```
+error   #7 HTTP request: url is required — the app throws
+        RequiredArgumentNullException, and all 133 real blocks of this type set it
+warning #4 Dialog choice?: startActivity is unset, but 300 of 300 real blocks
+        of this type set it
+```
+
+An **error** means the code and the corpus agree; treat it as a bug. A
+**warning** means one source is unsure — usually a field the app checks only on
+some paths. Read them; do not silence them.
 
 In a script, assert rather than hope:
 
 ```ts
 import { toModel, fromModel, validateModel } from './src/flo/model';
+import { lintFlow } from './src/flo/lint';
 
 const problems = validateModel(model);
 if (problems.length) throw new Error(problems.join('\n'));
+
+const errors = lintFlow(model).filter((f) => f.severity === 'error');
+if (errors.length) throw new Error(errors.map((e) => `#${e.blockId} ${e.message}`).join('\n'));
 
 const bytes = fromModel(model);
 const reloaded = toModel(bytes);                       // throws if malformed
@@ -558,6 +593,7 @@ device is not.
 | --- | --- |
 | load / save / edit a flow | `src/flo/model.ts` — `toModel`, `fromModel`, `createBlock`, `deleteBlock`, `connect`, `disconnect`, `validateModel`, `catalog` |
 | block metadata, ports, fields | `src/flo/blocks.ts` — `editableFields`, `fieldKind`, `outputPorts`, `describeBlock` |
+| will it work on a device? | `src/flo/lint.ts` — `lintFlow`, `formatFindings` |
 | expressions | `src/flo/exprparse.ts` — `parseExpression`; `src/flo/expr.ts` — `renderExpression`, `stringLiteral`, `numberLiteral`, `variableRef`, `integerBox` |
 | raw bytes, wire schema | `src/flo/codec.ts` — `parseFlo`, `writeFlo`, `schema`, `CURRENT_VERSION` |
 | readable JSON (not for editing) | `src/flo/json.ts` — `toJsonFlow`, `fromJsonFlow` |

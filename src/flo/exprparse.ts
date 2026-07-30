@@ -136,12 +136,19 @@ interface Token {
   parts?: Array<{ text: string } | { expr: string; at: number }>;
 }
 
+/**
+ * Variable names are not ASCII-only.
+ *
+ * Real flows in the corpus name variables `멜론재생`, `태태문` and similar; an
+ * ASCII-only lexer rejects its own rendered output for any flow not written in
+ * English, which in the editor means an unreadable field the user cannot save.
+ */
 function isIdentStart(c: string): boolean {
-  return /[A-Za-z_]/.test(c);
+  return /[\p{L}\p{Nl}_]/u.test(c);
 }
 
 function isIdentPart(c: string): boolean {
-  return /[A-Za-z0-9_]/.test(c);
+  return /[\p{L}\p{Nl}\p{Nd}\p{Mn}\p{Mc}_]/u.test(c);
 }
 
 class Lexer {
@@ -254,9 +261,12 @@ class Lexer {
             j += 2;
             continue;
           }
+          // Braces inside a nested string literal are text, not structure.
+          // `"{c ? ".tickLabel \{ display: none; }" : null}"` ends its hole at
+          // the final `}`, not at the one inside the CSS.
           if (d === '"') inString = !inString;
-          else if (d === '{') depth++;
-          else if (d === '}') depth--;
+          else if (!inString && d === '{') depth++;
+          else if (!inString && d === '}') depth--;
           if (depth === 0) break;
           j++;
         }
@@ -497,7 +507,10 @@ function buildCall(tid: number, name: string, args: FloValue[], at: number): Flo
     return node;
   }
 
-  const slots = ops.filter((o) => o.op === 'obj').map((o) => o.f);
+  // De-duplicated: a few generated entries name the same field twice
+  // (`urlDecode` has `f4645Z` in two slots), and assigning both would write the
+  // argument and then immediately overwrite it with the missing one's null.
+  const slots = [...new Set(ops.filter((o) => o.op === 'obj').map((o) => o.f))];
   if (args.length > slots.length) {
     throw new ExpressionError(
       `${name}() takes at most ${slots.length} argument(s), got ${args.length}`,
