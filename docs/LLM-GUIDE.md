@@ -50,8 +50,10 @@ side effects the flow has.
 
 Breaking any of these corrupts flows in ways that are hard to notice.
 
-1. **Never invent a block type id or a field name.** Look them up (§4). An
-   unknown id throws; a misspelled field is silently ignored and its value lost.
+1. **Never invent a block type id or a field name, and never assume a field
+   takes an expression.** Look them up with `fieldKind()` (§4, §5). An unknown id
+   throws; a misspelled field is silently ignored; and the wrong value *type* is
+   an exception inside Automate when it loads the flow.
 2. **Edit `block.raw` in place; never rebuild a block object.** Fields you do
    not touch are written back exactly as they came in — that is what keeps the
    round trip byte-exact. Replacing `raw` drops everything you did not copy.
@@ -217,40 +219,75 @@ expression. Always check `op` before assigning (§5).
 
 ## 5. Setting field values
 
-`editableFields()` gives each field's `op`, which decides what to assign.
+**`op: 'obj'` does not mean "any expression".** The app casts each argument as it
+reads it, so the wrong node type is a `ClassCastException` when Automate loads
+the flow — a failure you will only see on the phone. 616 of 2,424 argument
+fields are strictly typed this way, across 251 of the 410 block types.
 
-| `op` | Assign | Example |
+Ask the library rather than guessing:
+
+```ts
+import { fieldKind } from './src/flo/blocks';
+
+fieldKind(1046, 'duration');    // 'expression'
+fieldKind(1046, 'continuity');  // 'integer'   <- not an expression!
+fieldKind(1342, 'varStdout');   // 'variable'
+fieldKind(1046, 'onComplete');  // 'statement' <- a port; use connect()
+fieldKind(1072, 'title');       // 'text'
+```
+
+| `fieldKind` | Assign | Build with |
 | --- | --- | --- |
-| `obj` | an expression node, or `null` | `parseExpression('"hi"')` |
-| `utf`, `utf_null` | a `string`, or `null` | `'My flow'` |
-| `u8` | `0` or `1` | `1` |
-| `svar32`, `uvar32`, `i16`, `i32`, `f32`, `f64` | a `number` | `3` |
-| `svar64`, `i64` | a `bigint` | `3n` |
-| `objarray` | `{ _arr: [...] }` | `{ _arr: [variableRef('x')] }` |
-| `parcel` | leave untouched | — |
+| `expression` | any expression node, or `null` | `parseExpression('"hi"')`, `stringLiteral`, `numberLiteral` |
+| `variable` | a variable reference only | `variableRef('out')` |
+| `integer` | a boxed `java.lang.Integer` only | `integerBox(1)` |
+| `statement` | — | `connect()` / `disconnect()`, never assign |
+| `text` | a `string` or `null` | `'My flow'` |
+| `flag` | `0` or `1` | `1` |
+| `number` | a `number` | `3` |
+| `bigint` | a `bigint` | `3n` |
+| `array` | `{ _arr: [...] }` (or `{ _kv: [...] }`) | `{ _arr: [variableRef('x')] }` |
+| `opaque` | leave untouched | — |
 
-Most interesting fields are `obj`, meaning an Automate expression:
+The two that bite:
+
+- **`continuity`** exists on most blocks and is `integer`. `parseExpression('1')`
+  produces a numeric *expression*, which is the wrong type. Use `integerBox(1)`.
+- **Fields named `var…`** (`varStdout`, `varResultText`, `varSelectedIndices`)
+  are assignment targets and take `variableRef('name')`. The `var` prefix is a
+  reliable hint, but `fieldKind` is the actual rule.
 
 ```ts
 import { parseExpression } from './src/flo/exprparse';
-import { renderExpression, stringLiteral, numberLiteral, variableRef } from './src/flo/expr';
+import {
+  renderExpression, stringLiteral, numberLiteral, variableRef, integerBox,
+} from './src/flo/expr';
 
-block.raw.message  = parseExpression('"Done in {minutes} min"');
-block.raw.duration = parseExpression('selectedTime * 60');
-block.raw.message  = stringLiteral('plain text');   // shorthand
-block.raw.duration = numberLiteral(30);
-block.raw.varStdout = variableRef('out');            // an assignment target
+block.raw.message   = parseExpression('"Done in {minutes} min"');
+block.raw.duration  = parseExpression('selectedTime * 60');
+block.raw.continuity = integerBox(1);          // integer, not an expression
+block.raw.varStdout = variableRef('out');      // assignment target
+block.raw.message   = null;                    // clear the field
 
-renderExpression(block.raw.duration);                // 'selectedTime * 60'
-block.raw.message = null;                            // clear the field
+renderExpression(block.raw.duration);           // 'selectedTime * 60'
 ```
 
 `parseExpression` throws `ExpressionError` (with a character offset) on invalid
 input — let it throw rather than falling back to a string, or you will store the
 source text where an expression belongs.
 
-**A field whose name starts with `var` is an assignment target** and takes a
-variable reference, not an arbitrary expression: use `variableRef('name')`.
+### Check yourself before saving
+
+```ts
+import { validateModel } from './src/flo/model';
+
+const problems = validateModel(model);
+if (problems.length) throw new Error(problems.join('\n'));
+```
+
+It reports wrong-typed arguments, ports assigned instead of connected, dangling
+connections, and fields gated above the flow's format version (§9). It is clean
+on unmodified real flows, so anything it reports is yours.
 
 ### Expression syntax, briefly
 
@@ -400,7 +437,10 @@ FLO_FIXTURES=/dir/with/flo/files npm test
 In a script, assert rather than hope:
 
 ```ts
-import { toModel, fromModel } from './src/flo/model';
+import { toModel, fromModel, validateModel } from './src/flo/model';
+
+const problems = validateModel(model);
+if (problems.length) throw new Error(problems.join('\n'));
 
 const bytes = fromModel(model);
 const reloaded = toModel(bytes);                       // throws if malformed
@@ -437,6 +477,24 @@ device is not.
 - **Editing an interpolated string** resets the per-hole display flags the app
   stores. Harmless, but it means such an edit is not a byte-level no-op.
 - **`describeBlock()` is a caption, not data.** Do not parse it; read the fields.
+- **A flow's name comes from the filename**, not from inside the file — Automate
+  takes it from the `.flo` it imports. Name the output for what it is
+  (`Areeb app timed.flo`), not `out.flo`.
+  `FlowBeginning.title` is separate: it labels one entry point within the flow.
+- **`Flow start` / `Flow stop` reference other flows by device-local id**, e.g.
+  `"/flows/21/statements/1"`. Those numbers mean nothing on another device and
+  cannot be guessed — never invent one, and preserve what is there. If the user
+  needs a new cross-flow link, ask which flow.
+- **Grid coordinates are signed.** Real flows use negatives freely (one of the
+  fixtures starts at `x = -3, y = -29`). Do not clamp to zero or assume an origin.
+- **Adding a modern block to an old flow silently drops its newer arguments.**
+  456 of 3,719 block fields are version-gated, and saving skips any gated above
+  `model.version`. `validateModel` reports this; raising `model.version` to
+  `CURRENT_VERSION` fixes it but ends byte-exactness, so make it a deliberate
+  choice and tell the user.
+- **`_anon…` field names** are placeholders for values the app reads and throws
+  away, which still occupy bytes. `editableFields()` hides them; if you enumerate
+  `schema` directly, leave them alone.
 
 ---
 
@@ -444,9 +502,9 @@ device is not.
 
 | Need | Import from |
 | --- | --- |
-| load / save / edit a flow | `src/flo/model.ts` — `toModel`, `fromModel`, `createBlock`, `deleteBlock`, `connect`, `disconnect`, `catalog` |
-| block metadata, ports, fields | `src/flo/blocks.ts` — `editableFields`, `outputPorts`, `describeBlock` |
-| expressions | `src/flo/exprparse.ts` — `parseExpression`; `src/flo/expr.ts` — `renderExpression`, `stringLiteral`, `numberLiteral`, `variableRef` |
+| load / save / edit a flow | `src/flo/model.ts` — `toModel`, `fromModel`, `createBlock`, `deleteBlock`, `connect`, `disconnect`, `validateModel`, `catalog` |
+| block metadata, ports, fields | `src/flo/blocks.ts` — `editableFields`, `fieldKind`, `outputPorts`, `describeBlock` |
+| expressions | `src/flo/exprparse.ts` — `parseExpression`; `src/flo/expr.ts` — `renderExpression`, `stringLiteral`, `numberLiteral`, `variableRef`, `integerBox` |
 | raw bytes, wire schema | `src/flo/codec.ts` — `parseFlo`, `writeFlo`, `schema`, `CURRENT_VERSION` |
 | readable JSON (not for editing) | `src/flo/json.ts` — `toJsonFlow`, `fromJsonFlow` |
 | all 410 block types | `docs/BLOCKS.md`, or `npm run blocks -- <query>` |
@@ -460,7 +518,7 @@ produced from the app's compiled code by `tools/`. **Never hand-edit it.**
 
 ```ts
 import { readFileSync, writeFileSync } from 'node:fs';
-import { toModel, fromModel, createBlock, connect, catalog } from './src/flo/model';
+import { toModel, fromModel, createBlock, connect, catalog, validateModel } from './src/flo/model';
 import { parseExpression } from './src/flo/exprparse';
 
 const model = toModel(new Uint8Array(readFileSync('flow.flo')));
@@ -480,9 +538,12 @@ toast.raw.duration = parseExpression('3.5');
 for (const c of inbound) connect(model, c.from, c.port, toast.id);
 connect(model, toast.id, 'onComplete', wait.id);
 
+const problems = validateModel(model);
+if (problems.length) throw new Error(problems.join('\n'));
+
 const bytes = fromModel(model);
 if (toModel(bytes).blocks.length !== model.blocks.length) throw new Error('verify failed');
-writeFileSync('out.flo', bytes);
+writeFileSync('Areeb app timed.flo', bytes);   // the filename becomes the flow name
 console.log(`added #${toast.id}; ${model.blocks.length} blocks total`);
 ```
 

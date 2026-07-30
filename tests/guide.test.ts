@@ -16,10 +16,12 @@ import {
   emptyModel,
   fromModel,
   toModel,
+  validateModel,
 } from '../src/flo/model';
-import { editableFields, outputPorts } from '../src/flo/blocks';
+import { editableFields, fieldKind, outputPorts } from '../src/flo/blocks';
 import { parseExpression, ExpressionError } from '../src/flo/exprparse';
 import {
+  integerBox,
   numberLiteral,
   renderExpression,
   stringLiteral,
@@ -268,5 +270,72 @@ describe('LLM-GUIDE §11 — the complete example', () => {
     expect(
       renderExpression(reloaded.blocks.find((b) => b.id === toast.id)!.raw.message as never),
     ).toBe('"{selectedTime} minutes starting now"');
+  });
+});
+
+describe('LLM-GUIDE §5 — field kinds are the rule, not op alone', () => {
+  it('classifies the fields the guide calls out', () => {
+    expect(fieldKind(1046, 'duration')).toBe('expression');
+    expect(fieldKind(1046, 'continuity')).toBe('integer');
+    expect(fieldKind(1342, 'varStdout')).toBe('variable');
+    expect(fieldKind(1046, 'onComplete')).toBe('statement');
+    expect(fieldKind(1072, 'title')).toBe('text');
+    expect(fieldKind(1072, 'hidden')).toBe('flag');
+    expect(fieldKind(1046, 'nosuchfield')).toBeNull();
+  });
+
+  it('catches an expression put where a boxed Integer is required', () => {
+    // The app casts this field, so a numeric expression throws on load. This is
+    // the single easiest mistake to make from the field list alone.
+    const model = emptyModel();
+    const delay = createBlock(model, 1046, 4, 6);
+    delay.raw.continuity = numberLiteral(1);
+    expect(validateModel(model).join('\n')).toMatch(/continuity must be a boxed Integer/);
+
+    delay.raw.continuity = integerBox(1);
+    expect(validateModel(model)).toEqual([]);
+  });
+
+  it('catches a non-variable in an assignment target', () => {
+    const model = emptyModel();
+    const adb = createBlock(model, 1342, 4, 6);
+    adb.raw.varStdout = numberLiteral(5);
+    expect(validateModel(model).join('\n')).toMatch(/varStdout must be a variable reference/);
+
+    adb.raw.varStdout = variableRef('out');
+    expect(validateModel(model)).toEqual([]);
+  });
+
+  it('catches a dangling connection', () => {
+    const model = emptyModel();
+    const begin = model.blocks[0];
+    const gone = createBlock(model, 1120, 4, 6);
+    connect(model, begin.id, 'onComplete', gone.id);
+    model.blocks = model.blocks.filter((b) => b.id !== gone.id); // wrong way to delete
+    expect(validateModel(model).join('\n')).toMatch(/references a missing block/);
+  });
+
+  it('warns when a modern argument cannot be saved into an old flow', () => {
+    const model = emptyModel();
+    model.version = 85;
+    const http = createBlock(model, 1087, 4, 6); // HttpRequest
+    http.raw.alias = stringLiteral('cert'); // gated at v109
+    expect(validateModel(model).join('\n')).toMatch(/needs format v109 but the flow is v85/);
+  });
+});
+
+describe('LLM-GUIDE §9 — pitfalls that are checkable', () => {
+  it('accepts negative grid coordinates', () => {
+    const model = emptyModel();
+    const b = createBlock(model, 1120, -3, -29);
+    const again = toModel(fromModel(model)).blocks.find((x) => x.id === b.id)!;
+    expect([again.x, again.y]).toEqual([-3, -29]);
+  });
+
+  it('hides _anon placeholder fields from the editable list', () => {
+    for (const tid of Object.keys(catalog)) {
+      const names = editableFields(Number(tid)).map((f) => f.name);
+      expect(names.filter((n) => n.startsWith('_anon'))).toEqual([]);
+    }
   });
 });

@@ -78,11 +78,17 @@ inlined into that single file: no server, no Node, no network.
 npm run build:single     # -> dist/automate-web-builder.html
 ```
 
+Released builds attach this file to every GitHub release, so it can be downloaded
+and opened without cloning anything.
+
 **2. Static hosting.** `npm run build` produces a plain `dist/` of HTML, JS and
 CSS. Drop it on GitHub Pages, Netlify, or any web server. There is no backend.
-This repository ships a workflow (`.github/workflows/pages.yml`) that typechecks,
-tests and publishes to GitHub Pages on every push to the default branch — enable
-Pages with "GitHub Actions" as the source and it deploys itself.
+`.github/workflows/ci.yml` typechecks, tests and builds on every push, uploading
+the result as a workflow artifact. Pushing a `v*` tag runs
+`.github/workflows/release.yml`, which publishes a GitHub release with the
+standalone `.html` and a zip of the static site attached. (Pages is not used
+because it is unavailable on private repositories; `ci.yml` documents how to
+restore it if this ever becomes public.)
 
 **3. Development.** `npm install && npm run dev` for hot reloading while working
 on the code.

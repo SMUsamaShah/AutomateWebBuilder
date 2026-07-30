@@ -8,7 +8,7 @@
  * branch on the right.
  */
 
-import { catalog } from './model';
+import { catalog } from './catalog';
 import { schema } from './codec';
 import { renderExpression, isExpression } from './expr';
 import type { CatalogEntry, FloObject } from './types';
@@ -126,6 +126,59 @@ export function editableFields(typeId: number): Array<{ name: string; op: string
     out.push({ name: op.f, op: op.op });
   }
   return out;
+}
+
+/**
+ * What a field will accept.
+ *
+ * `op: 'obj'` does **not** mean "any expression". The app casts these fields as
+ * it reads them, so the wrong node type is a `ClassCastException` when Automate
+ * loads the flow — 616 of 2,424 argument fields are strictly typed this way.
+ */
+export type FieldKind =
+  | 'expression' // any expression node
+  | 'variable' // must be a variable reference (I3.l)
+  | 'integer' // must be a boxed java.lang.Integer
+  | 'statement' // a port; use connect()/disconnect(), never assign
+  | 'text' // plain string
+  | 'flag' // 0 or 1
+  | 'number'
+  | 'bigint'
+  | 'array' // { _arr: [...] } or { _kv: [...] }
+  | 'opaque'; // round-trips, not meaningfully editable
+
+const CAST_KIND: Record<string, FieldKind> = {
+  'com.llamalab.automate.InterfaceC1482k2': 'statement',
+  'I3.l': 'variable',
+  'I3.l[]': 'variable',
+  'java.lang.Integer': 'integer',
+};
+
+/** What `field` on this block type accepts, or null if it has no such field. */
+export function fieldKind(typeId: number, field: string): FieldKind | null {
+  const op = (schema[String(typeId)]?.ops ?? []).find((o) => o.f === field);
+  if (!op) return null;
+  switch (op.op) {
+    case 'obj':
+      return (op.cast && CAST_KIND[op.cast]) || 'expression';
+    case 'objarray':
+    case 'varargs':
+    case 'kvpairs':
+      return 'array';
+    case 'utf':
+    case 'utf_null':
+      return 'text';
+    case 'u8':
+      return 'flag';
+    case 'svar64':
+    case 'i64':
+      return 'bigint';
+    case 'parcel':
+    case 'convtype':
+      return 'opaque';
+    default:
+      return 'number';
+  }
 }
 
 /** Human label for an obfuscated field name. */

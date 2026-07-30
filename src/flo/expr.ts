@@ -257,6 +257,16 @@ export function numberLiteral(n: number): FloObject {
   return { _type: 104, f4637X: n };
 }
 
+/**
+ * Build a boxed `java.lang.Integer` (type 16).
+ *
+ * Fields such as `continuity` are read with an `(Integer)` cast, so a numeric
+ * *expression* is not interchangeable with one of these.
+ */
+export function integerBox(n: number): FloObject {
+  return { _type: 16, value: Math.trunc(n) };
+}
+
 /** Build a variable-reference node (type 102 = I3.l). */
 export function variableRef(name: string): FloObject {
   return { _type: 102, f4289X: name };

@@ -1,0 +1,57 @@
+# Typecheck, test and build on every push.
+#
+# Deliberately produces no Pages deployment: this repository is private, where
+# Pages is unavailable, and a workflow that always fails is worse than none. The
+# built site is uploaded as a workflow artifact instead, and `release.yml`
+# publishes the standalone editor on a tag. To restore Pages if the repository
+# ever becomes public, see the note at the bottom of this file.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build site and standalone editor
+        run: npm run build:all
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: automate-web-builder-${{ github.sha }}
+          path: |
+            dist/
+          if-no-files-found: error
+          retention-days: 30
+
+# Restoring GitHub Pages (public repositories only):
+#   1. Settings -> Pages -> Source: GitHub Actions
+#   2. Add a deploy job with `permissions: {pages: write, id-token: write}` using
+#      actions/upload-pages-artifact@v3 with `path: dist` and
+#      actions/deploy-pages@v4, gated on the default branch.

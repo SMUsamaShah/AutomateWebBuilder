@@ -13,6 +13,14 @@ expression table are **generated** from the decompiled APK, never hand-written.
   `npm run blocks -- <query>`.
 - **Supporting a new Automate release** → `UPGRADING.md`.
 
+## The trap worth knowing before touching a flow
+
+`op: 'obj'` on a block argument does **not** mean "any expression". The app casts
+each argument as it reads it, so the wrong node type throws inside Automate when
+the flow loads. Ask `fieldKind(typeId, field)` and run `validateModel(model)`
+before saving. `continuity` is the usual casualty: it needs `integerBox(1)`, not
+`parseExpression('1')`.
+
 ## The one invariant
 
 Loading a `.flo` and saving it untouched must reproduce the file **byte for
@@ -33,6 +41,7 @@ npm run explain -- f.flo   # execution-order walkthrough of a flow
 npm run blocks -- wifi     # find a block type (--all lists every one)
 npm run build          # static site -> dist/
 npm run build:single   # one self-contained dist/automate-web-builder.html
+npm run build:all      # both, in the order that works (vite empties dist/)
 ```
 
 ## Do not

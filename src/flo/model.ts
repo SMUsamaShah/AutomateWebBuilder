@@ -13,9 +13,9 @@
  */
 
 import { CURRENT_VERSION, parseFlo, schema, writeFlo } from './codec';
-import catalogJson from '../data/catalog.json';
+import { fieldKind } from './blocks';
+import { catalog } from './catalog';
 import type {
-  Catalog,
   CatalogEntry,
   Flow,
   FloObject,
@@ -23,7 +23,8 @@ import type {
   WireOp,
 } from './types';
 
-export const catalog = catalogJson as unknown as Catalog;
+// Re-exported so existing imports of `catalog` from this module keep working.
+export { catalog };
 
 /** Statement ids are 64-bit in the format; the UI works with them as strings. */
 export type BlockId = string;
@@ -309,6 +310,75 @@ export function connect(model: FlowModel, from: BlockId, port: string, to: Block
 
 export function disconnect(model: FlowModel, from: BlockId, port: string): void {
   model.connections = model.connections.filter((c) => !(c.from === from && c.port === port));
+}
+
+/**
+ * Check every block's arguments against the types the app will cast them to.
+ *
+ * The app reads an argument and immediately casts it, so a numeric *expression*
+ * where a boxed `Integer` is required throws when Automate loads the flow — a
+ * failure that only shows up on the phone. This catches it before saving.
+ *
+ * Returns human-readable problems; an empty array means nothing detectable is
+ * wrong. Run it before writing a file you did not simply round-trip.
+ */
+export function validateModel(model: FlowModel): string[] {
+  const problems: string[] = [];
+  const ids = new Set(model.blocks.map((b) => b.id));
+
+  const typeOf = (v: unknown): number | null =>
+    v && typeof v === 'object' && typeof (v as FloObject)._type === 'number'
+      ? (v as FloObject)._type
+      : null;
+
+  for (const b of model.blocks) {
+    const where = `#${b.id} ${b.entry?.name ?? b.typeId}`;
+    for (const op of schema[String(b.typeId)].ops ?? []) {
+      const value = b.raw[op.f];
+      if (value === null || value === undefined) continue;
+      const kind = fieldKind(b.typeId, op.f);
+      const t = typeOf(value);
+
+      if (kind === 'variable' && op.op === 'obj' && t !== 102) {
+        problems.push(`${where}.${op.f} must be a variable reference (variableRef), got type ${t}`);
+      } else if (kind === 'integer' && t !== 16) {
+        problems.push(`${where}.${op.f} must be a boxed Integer (integerBox), got type ${t}`);
+      } else if (kind === 'statement' && t !== null && t < 1000) {
+        problems.push(`${where}.${op.f} is a port; connect() it instead of assigning type ${t}`);
+      } else if (kind === 'variable' && op.op === 'objarray') {
+        for (const item of (value as { _arr?: unknown[] })?._arr ?? []) {
+          if (typeOf(item) !== 102) {
+            problems.push(`${where}.${op.f} entries must be variable references`);
+            break;
+          }
+        }
+      }
+
+      // A field gated above this flow's version is silently dropped on save.
+      // Two exclusions keep this from crying wolf: `_anon*` names are internal
+      // placeholders for values the app reads and discards, and a field often has
+      // one op per format era — if any of them is active, the value is written.
+      const activeElsewhere = (schema[String(b.typeId)].ops ?? []).some(
+        (other) =>
+          other.f === op.f &&
+          (other.min ?? 0) <= model.version &&
+          model.version <= (other.max ?? Number.MAX_SAFE_INTEGER),
+      );
+      if ((op.min ?? 0) > model.version && !op.f.startsWith('_anon') && !activeElsewhere) {
+        problems.push(
+          `${where}.${op.f} needs format v${op.min} but the flow is v${model.version}; ` +
+            `it will not be saved (raise model.version to ${CURRENT_VERSION} if intended)`,
+        );
+      }
+    }
+  }
+
+  for (const c of model.connections) {
+    if (!ids.has(c.from) || !ids.has(c.to)) {
+      problems.push(`connection ${c.from} --${c.port}--> ${c.to} references a missing block`);
+    }
+  }
+  return problems;
 }
 
 /** An empty flow containing a single "Flow beginning" block. */

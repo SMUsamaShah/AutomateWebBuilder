@@ -1,0 +1,97 @@
+# Publishes the standalone editor as a GitHub Release asset.
+#
+# `automate-web-builder.html` is the whole editor in one self-contained file:
+# no server, no install, no network. Attaching it to a release means anyone can
+# download one file and open it — which is how this gets shared, especially while
+# the repository is private and Pages is unavailable.
+#
+# Trigger either way:
+#   git tag v0.1.0 && git push origin v0.1.0      # tag-driven
+#   Actions -> Release -> Run workflow            # manual, with a version input
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to create, e.g. v0.1.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # A broken release is worse than a late one, so the same gates as CI.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # `build:all` orders these correctly: `vite build` empties dist/, so the
+      # standalone file has to be written after the site, not before.
+      - name: Build site and standalone editor
+        run: npm run build:all
+
+      - name: Package the static site
+        run: |
+          cd dist && zip -qr ../automate-web-builder-site.zip . && cd ..
+          ls -la automate-web-builder-site.zip dist/automate-web-builder.html
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          # A tag push may predate the tag object existing on a fresh dispatch.
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: |
+            dist/automate-web-builder.html
+            automate-web-builder-site.zip
+          body: |
+            ## Download
+
+            **[automate-web-builder.html](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/automate-web-builder.html)**
+            — the entire editor in one file. Save it and open it in a browser:
+            no install, no server, and nothing is uploaded. Flows are read and
+            written locally.
+
+            `automate-web-builder-site.zip` is the same editor as a static site,
+            if you would rather host it.
+
+            ## Notes
+
+            Block icons come from LlamaLab's icon font, which is not
+            redistributed here, so blocks show their initials instead. For the
+            real icons, build locally against your own copy of the APK:
+
+            ```bash
+            node scripts/extract-apk-assets.mjs path/to/automate.apk
+            npm run build:single
+            ```
+
+            Reads and writes `.flo` format v112 (Automate 1.51.x) and earlier.
