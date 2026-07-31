@@ -13,8 +13,16 @@ import { join } from 'node:path';
 import { buildFlow } from '../examples/app-usage-today';
 import { lintFlow } from '../src/flo/lint';
 import { createBlock, emptyModel, toModel, fromModel } from '../src/flo/model';
+import { schema } from '../src/flo/codec';
+import requiredJson from '../src/data/required.json';
+import conventionsJson from '../src/data/conventions.json';
 import { parseExpression } from '../src/flo/exprparse';
 import { variableRef } from '../src/flo/expr';
+
+const required = requiredJson as Record<string, string[]>;
+const observed = (
+  conventionsJson as { fields: Record<string, Record<string, { set: number; of: number }>> }
+).fields;
 
 const fixtures = (): string[] => {
   const dir = process.env.FLO_FIXTURES;
@@ -34,15 +42,29 @@ describe('flow linting', () => {
   });
 
   it('errors on a required argument the corpus never leaves empty', () => {
-    const model = emptyModel();
-    // HttpRequest.url: the app null-checks it, and all 133 in the corpus set it.
-    createBlock(model, 1087 /* HttpRequest */, 4, 6);
-
-    const found = lintFlow(model).filter((f) => f.severity === 'error');
-    expect(found.map((f) => f.field)).toContain('url');
-    expect(found.find((f) => f.field === 'url')!.message).toMatch(
-      /RequiredArgumentNullException/,
+    // Which field qualifies depends on the corpus behind conventions.json —
+    // widen it and a field that looked unconditional can turn out not to be.
+    // So the example is derived from the data rather than written down, and
+    // what is asserted is the rule, not one block's spelling.
+    const proven = Object.entries(required).flatMap(([cls, fields]) =>
+      fields
+        .filter((f) => {
+          const t = observed[cls]?.[f];
+          return t !== undefined && t.set === t.of && t.of >= 20;
+        })
+        .map((f) => ({ cls, field: f })),
     );
+    expect(proven.length, 'no field is both code-required and always set').toBeGreaterThan(0);
+
+    const typeId = Number(
+      Object.entries(schema).find(([, r]) => r.cls === proven[0].cls)![0],
+    );
+    const model = emptyModel();
+    createBlock(model, typeId, 4, 6);
+
+    const errors = lintFlow(model).filter((f) => f.severity === 'error');
+    expect(errors.map((f) => f.field)).toContain(proven[0].field);
+    expect(errors[0].message).toMatch(/RequiredArgumentNullException/);
   });
 
   it('only warns when the app checks a field but the corpus cannot confirm it', () => {

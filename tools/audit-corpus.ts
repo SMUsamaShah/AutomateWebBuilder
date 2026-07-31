@@ -30,12 +30,17 @@ function versionOf(bytes: Uint8Array): number {
   return new DataView(bytes.buffer, bytes.byteOffset).getUint16(4);
 }
 
-/** Collapse per-file detail (offsets, ids) so like failures group together. */
+/** Collapse per-file detail (offsets, ids, decode trail) so like failures group. */
 function generalise(message: string): string {
   return message
+    .split('\n')[0]
     .replace(/at \d+ \(\+\d+\)/, 'at <offset>')
+    .replace(/at \d+:/, 'at <offset>:')
     .replace(/type id \d+/, 'type id <n>')
-    .replace(/format v\d+/, 'format v<n>');
+    .replace(/id -?\d+, cell -?\d+,-?\d+/, 'id <n>, cell <x>,<y>')
+    .replace(/\(next id is \d+\)/, '(next id is <n>)')
+    .replace(/format v\d+/, 'format v<n>')
+    .replace(/\d+ byte\(s\) after \d+ statements/, '<n> byte(s) after <n> statements');
 }
 
 function main(): void {

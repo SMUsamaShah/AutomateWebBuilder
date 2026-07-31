@@ -153,7 +153,7 @@ round-tripped byte-for-byte.
 
 `npm run lint` catches that class of mistake. Its rules come from two
 independent places — Automate's own runtime guards, decompiled, and a corpus of
-~1,100 community flows by ~700 authors — and every finding carries its evidence:
+~800 community flows by ~500 authors — and every finding carries its evidence:
 
 ```
 error   #7 HTTP request: url is required — the app throws
@@ -162,7 +162,7 @@ warning #4 Dialog choice?: startActivity is unset, but 300 of 300 real blocks
         of this type set it
 ```
 
-On 1,134 real flows — 142,931 blocks — it reports **0 errors**, which is the
+On every readable flow in the corpus it reports **0 errors**, which is the
 point: flows that work should be silent.
 
 Build your own corpus and point the tools at it:
@@ -176,16 +176,22 @@ npx tsx tools/mine-conventions.ts corpus > src/data/conventions.json
 
 `npm run audit` is the counterpart to `npm test`: the test suite needs a corpus
 it passes, this one is meant to be pointed at flows written by strangers and to
-come back with a list. On 1,279 flows it currently reports:
+come back with a list. On 913 flows spanning format versions v3–v112 it
+currently reports:
 
 | | |
 | --- | --- |
-| fully clean | 1,133 (89%) |
-| block types exercised against real bytes | 332 of 410 |
-| unreadable — legacy type ids Automate 1.51 also refuses | 73 |
-| unreadable — **our bug**, old-format desync (v30–v111) | 58 |
-| unreadable — newer format than the schema (v113/v114) | 12 |
-| corrupt uploads (nonsense version, bad varint) | 3 |
+| fully clean | 798 (87%) |
+| block types exercised against real bytes | 378 of 410 (92%) |
+| unreadable — legacy type ids Automate 1.51 also refuses | 63 |
+| unreadable — **our bug**, old-format desync | 41 |
+| unreadable — newer format than the schema (v113/v114) | 9 |
+| corrupt uploads (nonsense version, bad varint) | 2 |
+
+When a flow does fail, the error names the block that lost its place: parsing
+stops at the first block whose statement id and grid position cannot be real,
+and reports the objects read just before it. That is how three block layouts
+were found that had desynchronised every flow using them.
 
 For a quick round trip through readable text, **Export JSON** turns the flow into
 a flat document:
