@@ -54,8 +54,39 @@ const VARLEN_UTF_SINCE = 35;
 export const CURRENT_VERSION = 112;
 /** `I3.l`, a reference to a flow variable. See `Encoder.canonicalVariable`. */
 export const VARIABLE_TYPE = 102;
+/** Type ids at or above this are statements; below are values and expressions. */
+const FIRST_STATEMENT_TYPE = 1000;
+/** Grid coordinates are signed and real flows range widely, but not this widely. */
+const MAX_CELL = 1_000_000;
+/** Statement id, grid x, grid y — the first three fields of every block. */
+const F_ID = 'f15575X';
+const F_X = 'f15576Y';
+const F_Y = 'f15577Z';
 
 export class FloFormatError extends Error {}
+
+/** Last few objects read, kept so a failure can say where it lost its place. */
+const TRAIL_LENGTH = 24;
+
+export interface DecodeTrailEntry {
+  typeId: number;
+  cls: string;
+  /** Byte offset the object started at. */
+  at: number;
+  /** Nesting depth, so the trail reads like a stack. */
+  depth: number;
+}
+
+/** A parse failure, carrying the objects read immediately before it. */
+export class FloDecodeError extends FloFormatError {
+  constructor(
+    message: string,
+    readonly version: number,
+    readonly trail: DecodeTrailEntry[],
+  ) {
+    super(message);
+  }
+}
 
 function entryFor(typeId: number): SchemaEntry {
   const rec = schema[String(typeId)];
@@ -75,9 +106,61 @@ class Decoder {
   private readonly objects: FloObject[] = [];
   version = 0;
   private varlenUtf = false;
+  private readonly trail: DecodeTrailEntry[] = [];
+  private depth = 0;
+  private nextId = 0n;
 
   constructor(data: Uint8Array) {
     this.r = new ByteReader(data);
+  }
+
+  /**
+   * Stop at the first block whose header is not believable.
+   *
+   * A mis-sized field desynchronises the stream, and from then on every byte is
+   * read as something it is not. The failure only surfaces much later, wherever
+   * the garbage happens to demand more bytes than remain — by which point the
+   * trail is a march through whatever type ids the noise decoded to, and says
+   * nothing about the real fault.
+   *
+   * Every block begins with its statement id and grid position. Ids are below
+   * the header's `nextId` and coordinates are small, so nonsense here is proof
+   * of a desync that has *already* happened, and the previous entries in the
+   * trail are the blocks that actually misread.
+   */
+  private checkStatement(tid: number, obj: FloObject, at: number): void {
+    if (tid < FIRST_STATEMENT_TYPE) return;
+    const id = obj[F_ID] as bigint | undefined;
+    if (typeof id !== 'bigint') return;
+    const x = obj[F_X] as number;
+    const y = obj[F_Y] as number;
+    if (id >= 0n && id <= this.nextId && Math.abs(x) <= MAX_CELL && Math.abs(y) <= MAX_CELL) {
+      return;
+    }
+    throw new FloFormatError(
+      `implausible block header at ${at}: id ${id}, cell ${x},${y} ` +
+        `(next id is ${this.nextId}) — the stream desynchronised earlier`,
+    );
+  }
+
+  /**
+   * Attach the decode trail to a failure.
+   *
+   * A desync surfaces where the stream runs out, which is arbitrarily far from
+   * the field that actually misread — so the error alone says nothing useful.
+   * The last objects read name the block whose layout is wrong, which for a
+   * version-gated field is the entire diagnosis.
+   */
+  explain(err: Error): Error {
+    if (err instanceof FloDecodeError) return err;
+    const where = this.trail
+      .map((t) => `${'  '.repeat(Math.min(t.depth, 8))}${t.typeId} ${t.cls} @${t.at}`)
+      .join('\n');
+    return new FloDecodeError(
+      `${err.message}\nformat v${this.version}, last objects read:\n${where}`,
+      this.version,
+      [...this.trail],
+    );
   }
 
   get pos(): number {
@@ -100,6 +183,7 @@ class Decoder {
     }
     this.varlenUtf = this.version >= VARLEN_UTF_SINCE;
     const nextId = this.r.svar64();
+    this.nextId = nextId;
     const count = Number(this.r.uvar());
     return { version: this.version, nextId, count };
   }
@@ -164,20 +248,29 @@ class Decoder {
   }
 
   object(): FloValue {
+    const at = this.r.pos;
     const tid = this.r.svar32();
     if (tid === 0) return null;
     if (tid < 0) return { _ref: -tid - 1 };
 
     const rec = entryFor(tid);
+    if (this.trail.length === TRAIL_LENGTH) this.trail.shift();
+    this.trail.push({ typeId: tid, cls: rec.cls ?? '?', at, depth: this.depth });
     const obj: FloObject = { _type: tid };
     this.objects.push(obj);
 
     switch (rec.kind) {
       case 'struct': {
-        for (const op of rec.ops ?? []) {
-          if (!opActive(op, this.version)) continue;
-          obj[op.f] = this.value(op);
+        this.depth++;
+        try {
+          for (const op of rec.ops ?? []) {
+            if (!opActive(op, this.version)) continue;
+            obj[op.f] = this.value(op);
+          }
+        } finally {
+          this.depth--;
         }
+        this.checkStatement(tid, obj, at);
         return obj;
       }
       case 'singleton':
@@ -285,16 +378,22 @@ class Decoder {
         obj.data = data;
         return obj;
       }
+      // The three plug-in blocks do not share a base class, and each base
+      // decides how many ports and whether a continuity follows. Reading the
+      // wrong shape shifts every later object by one.
       case 'PLUGIN_DECISION':
-      case 'PLUGIN_ACTION': {
+      case 'PLUGIN_ACTION':
+      case 'PLUGIN_ACTION_CONTINUITY': {
         obj.sid = this.r.svar64();
         obj.x = this.r.svar32();
         obj.y = this.r.svar32();
         if (name === 'PLUGIN_DECISION') {
           obj.onPositive = this.object();
           obj.onNegative = this.object();
+          obj.continuity = this.object();
         } else {
           obj.onComplete = this.object();
+          if (name === 'PLUGIN_ACTION_CONTINUITY') obj.continuity = this.object();
         }
         obj.pkg = this.r.utf(this.varlenUtf);
         obj.pluginClass = this.r.utf(this.varlenUtf);
@@ -592,15 +691,18 @@ class Encoder {
         return;
       }
       case 'PLUGIN_DECISION':
-      case 'PLUGIN_ACTION': {
+      case 'PLUGIN_ACTION':
+      case 'PLUGIN_ACTION_CONTINUITY': {
         this.w.svar64(obj.sid as bigint);
         this.w.svar32(obj.x as number);
         this.w.svar32(obj.y as number);
         if (name === 'PLUGIN_DECISION') {
           this.object(obj.onPositive);
           this.object(obj.onNegative);
+          this.object(obj.continuity);
         } else {
           this.object(obj.onComplete);
+          if (name === 'PLUGIN_ACTION_CONTINUITY') this.object(obj.continuity);
         }
         this.w.utf(obj.pkg as string, this.varlenUtf);
         this.w.utf(obj.pluginClass as string, this.varlenUtf);
@@ -651,9 +753,15 @@ export function parseFlo(data: Uint8Array): Flow {
   const d = new Decoder(data);
   const { version, nextId, count } = d.header();
   const statements: FloValue[] = [];
-  for (let i = 0; i < count; i++) statements.push(d.object());
+  try {
+    for (let i = 0; i < count; i++) statements.push(d.object());
+  } catch (err) {
+    throw d.explain(err as Error);
+  }
   if (d.remaining !== 0) {
-    throw new FloFormatError(`trailing data: ${d.remaining} byte(s) after ${count} statements`);
+    throw d.explain(
+      new FloFormatError(`trailing data: ${d.remaining} byte(s) after ${count} statements`),
+    );
   }
   return { version, nextId, statements };
 }

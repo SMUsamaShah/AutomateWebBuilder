@@ -9227,20 +9227,11 @@
   "layout": "block_action",
   "ports": [
    {
-    "field": "onPositive",
-    "conn": null
-   },
-   {
-    "field": "onNegative",
-    "conn": null
+    "field": "onComplete",
+    "conn": "bottom"
    }
   ],
   "fields": [
-   {
-    "name": "continuity",
-    "op": "obj",
-    "cast": "java.lang.Integer"
-   },
    {
     "name": "gesture",
     "op": "obj"

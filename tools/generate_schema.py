@@ -597,9 +597,15 @@ MANUAL_SPECS = {
         {"f": "f4645Z", "op": "obj", "min": 109},
         {"f": "f4645Z", "op": "obj", "max": 108},
     ],
+    # These three carry an Android Parcel we cannot model as fields, so their
+    # layout is hand-written in the codec. They do NOT share a base class, and
+    # getting that wrong shifts every later object by one:
+    #   PlugInCondition  extends StatefulIntermittentDecision  (2 ports + continuity)
+    #   PlugInEvent      extends Action                        (1 port)
+    #   PlugInSetting    extends IntermittentAction            (1 port + continuity)
     "com.llamalab.automate.stmt.PlugInCondition": "PLUGIN_DECISION",
-    "com.llamalab.automate.stmt.PlugInEvent": "PLUGIN_DECISION",
-    "com.llamalab.automate.stmt.PlugInSetting": "PLUGIN_ACTION",
+    "com.llamalab.automate.stmt.PlugInEvent": "PLUGIN_ACTION",
+    "com.llamalab.automate.stmt.PlugInSetting": "PLUGIN_ACTION_CONTINUITY",
     "com.llamalab.automate.stmt.Interact": [
         {"op": "super", "cls": "com.llamalab.automate.stmt.IntermittentDecision", "gate": 59},
         {"f": "action", "op": "obj"},
@@ -661,10 +667,6 @@ MANUAL_SPECS = {
         {"f": "varKey", "op": "obj"},
         {"f": "varRemoveReason", "op": "obj", "min": 81},
     ],
-    "com.llamalab.automate.stmt.ServiceStart": [
-        {"op": "super", "cls": "com.llamalab.automate.stmt.IntermittentAction", "gate": 73},
-        {"f": "foreground", "op": "obj", "min": 93},
-    ],
     "com.llamalab.automate.stmt.VariablesGive": [
         {"op": "super", "cls": "com.llamalab.automate.stmt.Action"},
         {"f": "taker", "op": "obj"},
@@ -676,8 +678,12 @@ MANUAL_SPECS = {
         {"f": "varGiverFiberUri", "op": "obj"},
         {"f": "variables", "op": "objarray"},
     ],
+    # Extends Action — one port, and no continuity. Reading it as a decision
+    # consumed an extra object and desynchronised every flow containing it.
+    # (Before v46 the gesture payload was written inline with no type id; that
+    # branch is still unmodelled, and no v<46 sample exists to check it against.)
     "com.llamalab.automate.stmt.MotionGesture": [
-        {"op": "super", "cls": "com.llamalab.automate.stmt.IntermittentDecision"},
+        {"op": "super", "cls": "com.llamalab.automate.stmt.Action"},
         {"f": "gesture", "op": "obj", "min": 46},
         {"f": "name", "op": "utf_null"},
     ],
@@ -755,6 +761,38 @@ for cls in MANUAL_TRY_AUTO:
         MANUAL_SPECS.pop(cls, None)
     except ParseFail:
         pass
+
+def check_manual_superclasses():
+    """Refuse a hand-written spec that names a superclass the class does not have.
+
+    MANUAL_SPECS is only a fallback for classes the extractor cannot parse, so a
+    wrong entry sits unused — and silently correct-looking — until the day
+    extraction fails and it is picked up. That is exactly what happened to
+    MotionGesture: it claimed IntermittentDecision, actually extends Action, and
+    so read two ports plus a continuity where the file holds one port. Every
+    flow containing the block desynchronised from that point on, at every format
+    version, and nothing downstream could tell.
+    """
+    problems = []
+    for child, spec in MANUAL_SPECS.items():
+        if not isinstance(spec, list):
+            continue  # a few entries alias another class by name
+        for op in spec:
+            if not isinstance(op, dict) or op.get("op") != "super":
+                continue
+            chain = extends_chain(child)[1:]
+            if chain and op["cls"] not in chain:
+                short = [c.rsplit(".", 1)[-1] for c in chain[:3]]
+                problems.append(
+                    f"  {child.rsplit('.', 1)[-1]} claims "
+                    f"{op['cls'].rsplit('.', 1)[-1]}, actually {' -> '.join(short)}"
+                )
+    if problems:
+        sys.exit("stale manual specs:\n" + "\n".join(problems))
+
+
+check_manual_superclasses()
+
 
 def expand_manual(spec):
     """Expand 'super' pseudo-ops in manual specs."""

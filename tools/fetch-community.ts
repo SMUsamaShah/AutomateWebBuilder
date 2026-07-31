@@ -81,9 +81,15 @@ async function harvest(cache: string): Promise<FlowMeta[]> {
 }
 
 /** Biggest first, but no author may dominate. */
-function select(all: FlowMeta[], max: number, minStatements: number, perAuthor: number) {
+function select(
+  all: FlowMeta[],
+  max: number,
+  minStatements: number,
+  perAuthor: number,
+  maxDataVersion: number,
+) {
   const ranked = all
-    .filter((m) => m.statements >= minStatements)
+    .filter((m) => m.statements >= minStatements && m.dataVersion <= maxDataVersion)
     .sort((a, b) => b.statements - a.statements);
   const used = new Map<number, number>();
   const picked: FlowMeta[] = [];
@@ -107,6 +113,10 @@ async function main(): Promise<void> {
   const max = flag('--max', 400);
   const minStatements = flag('--min-statements', 0);
   const perAuthor = flag('--per-author', 8);
+  // The index carries each flow's format version, so old files — where the
+  // version-gated fields live and where this library still gets things wrong —
+  // can be targeted rather than stumbled upon.
+  const maxDataVersion = flag('--max-data-version', Number.MAX_SAFE_INTEGER);
   mkdirSync(dir, { recursive: true });
 
   const all = await harvest(join(dir, 'index-all.json'));
@@ -119,11 +129,12 @@ async function main(): Promise<void> {
     return;
   }
 
-  const wanted = select(all, max, minStatements, perAuthor);
+  const wanted = select(all, max, minStatements, perAuthor, maxDataVersion);
   console.log(
     `selected ${wanted.length} flows, ${wanted.reduce((a, m) => a + m.statements, 0)} statements, ` +
       `from ${new Set(wanted.map((m) => m.user?.id)).size} authors ` +
-      `(largest ${wanted[0]?.statements}, smallest ${wanted[wanted.length - 1]?.statements})`,
+      `(largest ${wanted[0]?.statements}, smallest ${wanted[wanted.length - 1]?.statements}, ` +
+      `formats v${Math.min(...wanted.map((m) => m.dataVersion))}–v${Math.max(...wanted.map((m) => m.dataVersion))})`,
   );
 
   const indexPath = join(dir, 'index.json');

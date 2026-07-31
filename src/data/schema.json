@@ -8127,13 +8127,13 @@
   "id": 1105,
   "cls": "com.llamalab.automate.stmt.PlugInEvent",
   "kind": "builtin",
-  "builtin": "PLUGIN_DECISION"
+  "builtin": "PLUGIN_ACTION"
  },
  "1106": {
   "id": 1106,
   "cls": "com.llamalab.automate.stmt.PlugInSetting",
   "kind": "builtin",
-  "builtin": "PLUGIN_ACTION"
+  "builtin": "PLUGIN_ACTION_CONTINUITY"
  },
  "1107": {
   "id": 1107,
@@ -13808,19 +13808,9 @@
     "op": "svar32"
    },
    {
-    "f": "onPositive",
+    "f": "onComplete",
     "op": "obj",
     "cast": "com.llamalab.automate.InterfaceC1482k2"
-   },
-   {
-    "f": "onNegative",
-    "op": "obj",
-    "cast": "com.llamalab.automate.InterfaceC1482k2"
-   },
-   {
-    "f": "continuity",
-    "op": "obj",
-    "cast": "java.lang.Integer"
    },
    {
     "f": "gesture",
