@@ -49,7 +49,15 @@ function add(model: FlowModel, name: string, x: number, y: number): Block {
 /** Every dialog needs this, or it posts a notification and the fiber waits. */
 const SHOW_WINDOW = '1';
 
-/** A directory private to this flow, so the token never travels with it. */
+/**
+ * A directory private to this flow, so the token never travels with it.
+ *
+ * `storage()` returns a path, and says nothing about whether it exists. For a
+ * flow that has never written a file, it does not: the first write fails with
+ * NoSuchFileException. `File make directory` below creates it, and does nothing
+ * when it is already there.
+ */
+const TOKEN_DIR = 'storage("internal", "")';
 const TOKEN_FILE = 'storage("internal", "dynalist-token.txt")';
 
 /** https://apidocs.dynalist.io — the inbox endpoint needs no document id. */
@@ -95,13 +103,16 @@ export function buildFlow(): FlowModel {
   askToken.raw.varResultText = variableRef('dynalistToken');
   askToken.raw.startActivity = parseExpression(SHOW_WINDOW);
 
-  const saveToken = add(model, 'FileWrite', 14, 18);
+  const makeDir = add(model, 'FileMakeDirectory', 14, 18);
+  makeDir.raw.path = parseExpression(TOKEN_DIR);
+
+  const saveToken = add(model, 'FileWrite', 14, 24);
   saveToken.raw.targetFile = parseExpression('tokenFile');
   saveToken.raw.content = parseExpression('trim(dynalistToken)');
 
   // ---- wait for a share, send it, say what happened, wait again ------------
 
-  const share = add(model, 'ContentShared', 4, 24);
+  const share = add(model, 'ContentShared', 4, 30);
   share.raw.title = parseExpression('"Save link to Dynalist"');
   share.raw.mimeType = parseExpression('"text/*"');
   share.raw.varContentText = variableRef('sharedText');
@@ -110,11 +121,11 @@ export function buildFlow(): FlowModel {
   // The request can fail before it returns a status code: no network, DNS,
   // a timeout. Without this the fiber would stop and the flow would no longer
   // be in the share sheet.
-  const guard = add(model, 'FailureCatch', 4, 30);
+  const guard = add(model, 'FailureCatch', 4, 36);
   guard.raw.retryLimit = parseExpression('1');
   guard.raw.varFailureMessage = variableRef('shareError');
 
-  const post = add(model, 'HttpRequest', 4, 36);
+  const post = add(model, 'HttpRequest', 4, 42);
   post.raw.url = parseExpression(INBOX_URL);
   post.raw.method = parseExpression('"POST"');
   post.raw.contentType = parseExpression('"application/json"');
@@ -127,22 +138,22 @@ export function buildFlow(): FlowModel {
   post.raw.varResponseBody = variableRef('httpBody');
 
   // Dynalist answers 200 even when it refuses the item, so the body decides.
-  const accepted = add(model, 'ExpressionDecision', 4, 42);
+  const accepted = add(model, 'ExpressionDecision', 4, 48);
   accepted.raw.expression = parseExpression(
     'httpCode = 200 && jsonDecode(httpBody)["_code"] = "OK"',
   );
 
-  const saved = add(model, 'ToastShow', 4, 48);
+  const saved = add(model, 'ToastShow', 4, 54);
   saved.raw.message = parseExpression(
     '"Saved to Dynalist:\\n{substr(sharedTitle || sharedText, 0, 60)}"',
   );
 
-  const refused = add(model, 'ToastShow', 14, 42);
+  const refused = add(model, 'ToastShow', 24, 48);
   refused.raw.message = parseExpression(
     '"Dynalist did not save it.\\nHTTP {httpCode}\\n" ++ substr(trim(httpBody), 0, 120)',
   );
 
-  const unreachable = add(model, 'ToastShow', 24, 30);
+  const unreachable = add(model, 'ToastShow', 34, 36);
   unreachable.raw.message = parseExpression('"Could not reach Dynalist.\\n{shareError}"');
 
   connect(model, begin.id, 'onComplete', tokenPath.id);
@@ -150,7 +161,8 @@ export function buildFlow(): FlowModel {
   connect(model, haveToken.id, 'onPositive', readToken.id);
   connect(model, haveToken.id, 'onNegative', askToken.id);
   connect(model, readToken.id, 'onComplete', share.id);
-  connect(model, askToken.id, 'onPositive', saveToken.id);
+  connect(model, askToken.id, 'onPositive', makeDir.id);
+  connect(model, makeDir.id, 'onComplete', saveToken.id);
   // Cancelling the token dialog ends the flow. There is nothing it can do.
   connect(model, saveToken.id, 'onComplete', share.id);
 
