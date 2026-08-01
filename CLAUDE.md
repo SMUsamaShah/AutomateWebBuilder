@@ -6,6 +6,12 @@ Automate does not document the `.flo` file format. The scripts in `tools/` read
 a decompiled copy of the Automate APK. They write the format data into
 `src/data/`.
 
+The APK is not in this repository. It is LlamaLab's. You do not need it. The
+files in `src/data/` are committed, and the library reads those. To build a
+flow, or to change the library, you never open the Java code. Get the APK only
+to add support for a newer Automate release. `docs/INTERNALS.md` section 3 tells
+you how.
+
 ## Which document to read
 
 | Your task | Document |

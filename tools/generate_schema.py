@@ -1,14 +1,65 @@
 #!/usr/bin/env python3
-"""Generate .flo serialization schema + block catalog from jadx-decompiled Automate APK. v2"""
+"""Generate .flo serialization schema + block catalog from jadx-decompiled Automate APK. v2
+
+    python3 tools/generate_schema.py <jadx-output-dir> [out-dir]
+
+<jadx-output-dir> is where jadx wrote the APK. It must hold both the Java
+sources and the resources, so decompile *without* `--no-res`. Two separate jadx
+runs also work: pass the directory that contains them both.
+
+The APK is not in this repo. It is LlamaLab's, so it is not redistributed here.
+Get it from a device or from APKMirror, then decompile it yourself. Nothing in
+`src/`, `docs/` or the tests needs it — the generated JSON in `src/data/` is
+committed, and that is what the library reads.
+
+[out-dir] defaults to `src/data/`, which is what the library loads. Point it
+somewhere else to inspect a new release before overwriting the committed files.
+"""
 import re, os, sys, json
 from collections import OrderedDict
 
-SCRATCH = "/tmp/claude-0/-home-user-AutomateWebBuilder/84838f6f-cc16-5dd9-ad46-e1909201725c/scratchpad"
-SRC = os.path.join(SCRATCH, "apk/decompiled/sources")
-RESV = os.path.join(SCRATCH, "apk/resources/resources/res/values")
-RESL = os.path.join(SCRATCH, "apk/resources/resources/res/layout")
-OUT = os.path.join(SCRATCH, "generated")
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+
+
+def find_dir(root, wanted, marker):
+    """Locate `wanted` under `root`, wherever jadx happened to put it.
+
+    jadx's layout shifts between versions and between resource-only runs, so
+    the directory is searched for rather than assumed. `marker` is a file that
+    must be inside it, which tells the real one from a same-named decoy.
+    """
+    if os.path.isfile(os.path.join(root, wanted, marker)):
+        return os.path.join(root, wanted)
+    for dirpath, dirnames, _ in os.walk(root):
+        dirnames.sort()
+        for d in dirnames:
+            cand = os.path.join(dirpath, d)
+            if d == os.path.basename(wanted) and os.path.isfile(os.path.join(cand, marker)):
+                return cand
+    sys.exit(
+        f"could not find {wanted}/ (containing {marker}) under {root}\n"
+        "Decompile the APK with jadx and without --no-res, then pass the output "
+        "directory. See docs/INTERNALS.md section 3."
+    )
+
+
+if len(sys.argv) < 2:
+    sys.exit(__doc__.strip().splitlines()[2].strip())
+
+ROOT = os.path.abspath(sys.argv[1])
+if not os.path.isdir(ROOT):
+    sys.exit(f"no such directory: {ROOT}")
+
+SRC = find_dir(ROOT, "sources", "com/llamalab/automate/AutomateApplication.java")
+RESV = find_dir(ROOT, "res/values", "public.xml")
+RESL = os.path.join(os.path.dirname(RESV), "layout")
+if not os.path.isdir(RESL):
+    sys.exit(f"no layout/ beside {RESV}")
+
+OUT = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else os.path.join(REPO, "src", "data")
 os.makedirs(OUT, exist_ok=True)
+print(f"sources: {SRC}\nresources: {RESV}\noutput: {OUT}", file=sys.stderr)
 
 # ---------------- resources ----------------
 public = {}  # int id -> (type, name)

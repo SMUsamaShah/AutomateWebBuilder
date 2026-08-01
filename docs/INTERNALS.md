@@ -64,15 +64,23 @@ exactly that gap. §5 is about closing it.
 
 ## 3. Regenerating for a new Automate release
 
+You need the APK for this. It is LlamaLab's, so this repo does not carry it and
+none of the generated files depend on you having it — `src/data/*.json` is
+committed, and that is what the library reads. Get the APK off a device or from
+APKMirror.
+
 ```bash
-# 1. Decompile the new APK (any jadx build; 1.5.x is known to work)
-java -jar jadx-cli.jar --no-res -d /tmp/apk-new automate.apk
+# 1. Decompile the new APK (any jadx build; 1.5.x is known to work).
+#    Not --no-res: generate_schema.py reads strings.xml, integers.xml and the
+#    block_*.xml layouts for titles, icons and port positions.
+java -jar jadx-cli.jar -d /tmp/apk-new automate.apk
 
 # 2. Keep the current schema so it can be compared
 cp src/data/schema.json /tmp/schema-old.json
 
-# 3. Regenerate
-python3 tools/generate_schema.py    /tmp/apk-new/sources
+# 3. Regenerate. generate_schema.py finds sources/ and res/ under the directory
+#    you give it, and writes into src/data/ unless you name somewhere else.
+python3 tools/generate_schema.py    /tmp/apk-new
 python3 tools/generate_exprtable.py /tmp/apk-new/sources
 python3 tools/generate_required.py  /tmp/apk-new/sources > src/data/required.json
 npm run blocks -- --write-index      # refresh docs/BLOCKS.md

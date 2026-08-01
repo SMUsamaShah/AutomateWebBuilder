@@ -251,11 +251,14 @@ docs/INTERNALS.md       how to change this project
 examples/               flows built from nothing with the model API
 ```
 
-The scripts are part of the repository, so you can regenerate the data for a new
-Automate release. Decompile the APK with [jadx](https://github.com/skylot/jadx).
-Point the scripts at the `sources/` folder. Then run `tools/diff_schema.py` to
-see what the release changed. **[docs/INTERNALS.md](docs/INTERNALS.md)** has the
-full procedure.
+The APK is not in this repository. It belongs to LlamaLab. You do not need it:
+`src/data/*.json` is committed, and that is what the library reads. To use this
+project, or to build a flow with it, the APK is not required at any point.
+
+You need it only to add support for a newer Automate release. Then decompile the
+APK with [jadx](https://github.com/skylot/jadx) and point the scripts at the
+output. `tools/diff_schema.py` shows what the release changed.
+**[docs/INTERNALS.md](docs/INTERNALS.md)** has the full procedure.
 
 ### The `.flo` format, in short
 
