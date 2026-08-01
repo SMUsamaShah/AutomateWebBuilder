@@ -56,9 +56,10 @@ The format was reverse-engineered from `com.llamalab.automate` 1.51.1262 by
 decompiling the APK and reading its `z0`/`S` (read/write) methods directly, then
 generating the wire schema from them rather than transcribing it by hand.
 
-This was verified against real flows of 21, 43, 343 and 1243 blocks spanning
-format versions 84, 85 and 112, all byte-identical after a round trip — both
-through the codec directly and through the editor's own load/save path.
+It is verified against a corpus of real community flows spanning most format
+versions Automate has used, all byte-identical after a round trip — both through
+the codec directly and through the editor's own load/save path. `npm run audit`
+reports the current numbers.
 
 To run it against your own flows:
 
@@ -153,14 +154,14 @@ round-tripped byte-for-byte.
 
 The editor shows this as you work: a count in the toolbar, a dot on the block,
 and the finding under the field it concerns. `npm run lint` does the same from
-the command line. Its rules come from two
-independent places — Automate's own runtime guards, decompiled, and a corpus of
-~800 community flows by ~500 authors — and every finding carries its evidence:
+the command line. Its rules come from two independent places — Automate's own
+runtime guards, decompiled, and a corpus of community flows by several hundred
+authors — and every finding carries its evidence:
 
 ```
-error   #7 HTTP request: url is required — the app throws
-        RequiredArgumentNullException, and all 133 real blocks of this type set it
-warning #4 Dialog choice?: startActivity is unset, but 300 of 300 real blocks
+error   #7 App kill: packageName is required — the app throws
+        RequiredArgumentNullException, and all 464 real blocks of this type set it
+warning #4 Dialog choice?: startActivity is unset, but 2328 of 2333 real blocks
         of this type set it
 ```
 
