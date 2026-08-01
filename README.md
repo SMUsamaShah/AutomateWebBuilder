@@ -1,67 +1,68 @@
 # Automate Web Builder
 
-A browser-based editor for [LlamaLab Automate](https://llamalab.com/automate/) flows.
-Open a `.flo` file, edit it on a real screen with a mouse and a keyboard, and save it
-back in a format the app loads without complaint.
+This project is a web page. It opens a [LlamaLab Automate](https://llamalab.com/automate/)
+`.flo` file, edits it, and saves it again. Automate reads the saved file without
+an error.
 
-Building flows on a phone works, but editing one — tapping tiny blocks, retyping
-expressions in a cramped dialog — does not. This gives the same flowchart on a
-desktop, plus a readable JSON projection you can hand to an AI agent.
+You can build a flow on a phone. To edit one is harder. The blocks are small and
+the expression box is narrow. This project draws the same flowchart on a desktop
+screen. It also writes the flow as JSON, which you can give to an AI agent.
 
-> Unofficial and not affiliated with LlamaLab. It reads and writes the `.flo`
-> format; it does not run flows.
+> This project is not official. LlamaLab did not make it. It reads and writes
+> the `.flo` format. It does not run flows.
 
-## What works
+## What it does
 
-- **Open and save `.flo` files.** The binary format is implemented from the app's
-  own serialization code, including its per-version field gates, so files from
-  older Automate versions load correctly and files you save are byte-compatible.
-- **Every block type**, with the app's own titles, summaries, icons, and
-  documentation links — searchable and grouped by category.
-- **The flowchart, as the app draws it.** Same grid, block shape, connector
-  colours (IN/OK/YES/NO/FAIL/DO/NEW), and orthogonal connection routing.
-- **Expression editing.** Arguments render as real Automate expression source —
-  `"Do you want to run BigOS " ++ versionbigos ++ " Setup?"` — and what you type
-  is compiled back by a parser built from the app's own grammar, so lists, maps
-  and operator trees survive editing instead of collapsing to text.
-- **JSON import/export** for reading or rewriting a flow with an AI agent.
-- **Resizable panels.** Drag either divider to trade canvas space for palette or
-  detail width; double-click a divider to reset it. Widths are remembered.
+- **Opens and saves `.flo` files.** The format code comes from the app's own
+  read and write methods. It includes the per-version field rules. Files from
+  old Automate versions open correctly.
+- **Knows every block type.** Each block has the app's own title, summary, icon
+  and documentation link. You can search them or read them by category.
+- **Draws the flowchart like the app.** Same grid, same block shape and same
+  connection routes. The connector colours match too (IN, OK, YES, NO, FAIL,
+  DO, NEW).
+- **Edits expressions.** A field shows real Automate expression source, such as
+  `"Do you want to run BigOS " ++ versionbigos ++ " Setup?"`. A parser compiles
+  your text back into the flow. Lists, maps and operator trees stay as they are.
+- **Reads and writes JSON.** An AI agent can then read or rewrite the flow.
+- **Has panels that you can resize.** Drag a divider to change a width.
+  Double-click a divider to reset it. The editor remembers the widths.
 
-## What "byte-for-byte" means
+## What "byte for byte" means
 
-The test suite's central claim is that opening a `.flo` and saving it without
-edits reproduces the original file **exactly, byte for byte**.
+If you open a `.flo` file and save it with no edits, the new file must equal the
+old file, byte for byte. The tests check this.
 
-That is not a claim about edited files — an edit obviously changes bytes. It is
-a claim about everything you *didn't* edit. A format this size has hundreds of
-optional, version-gated fields; if the reader misunderstood even one of them,
-saving would quietly drop or corrupt it. Reproducing the input exactly is the
-only way to prove nothing is being lost in the parts of the flow the editor
-never shows you.
+This is not a claim about files that you edit. An edit changes bytes. It is a
+claim about the parts that you did not edit.
 
-Concretely, two properties are tested against real flows:
+The format has hundreds of optional fields. Each field belongs to a range of
+format versions. If the reader gets one field wrong, a save can drop that field
+or corrupt it. Nothing else shows the fault. An exact copy is the proof that
+nothing is lost.
 
-- **Open then save, untouched → identical bytes.** No collateral damage.
-- **Change one thing → only that thing differs.** Every other block keeps its
-  type, position, arguments and connections.
+Two tests run against real flows:
 
-So when you move a block and save, the moved block's coordinates change and the
-rest of the file is written back exactly as it came in — including fields this
-editor has no UI for.
+- Open a file, then save it with no edits. The bytes must be equal.
+- Change one thing. Only that thing must differ. Every other block keeps its
+  type, its position, its arguments and its connections.
 
-## Fidelity
+If you move a block and save the file, one block gets new coordinates. The
+editor writes the rest of the file back as it arrived. This includes the fields
+that the editor has no screen for.
 
-The format was reverse-engineered from `com.llamalab.automate` 1.51.1262 by
-decompiling the APK and reading its `z0`/`S` (read/write) methods directly, then
-generating the wire schema from them rather than transcribing it by hand.
+## How correct is it
 
-It is verified against a corpus of real community flows spanning most format
-versions Automate has used, all byte-identical after a round trip — both through
-the codec directly and through the editor's own load/save path. `npm run audit`
-reports the current numbers.
+The format came from `com.llamalab.automate` 1.51.1262. A decompiler produced
+the app's Java source. The `z0` and `S` methods read and write each block. A
+script reads those methods and writes the format data. Nobody typed the format
+data by hand.
 
-To run it against your own flows:
+The tests run against a set of real community flows. These flows cover most
+format versions that Automate has used. Every one is byte-identical after a
+round trip, through the codec and through the editor.
+
+To test your own flows, run this command:
 
 ```bash
 FLO_FIXTURES=/path/to/your/flows npm test
@@ -69,94 +70,107 @@ FLO_FIXTURES=/path/to/your/flows npm test
 
 ## Getting started
 
-There are three ways to run it, in increasing order of effort.
+There are three ways to run this project. The first needs the least work.
 
-**1. One file, no install.** Build (or download) `automate-web-builder.html` and
-open it in a browser — from your disk, a USB stick, anywhere. Everything is
-inlined into that single file: no server, no Node, no network.
+### 1. One file, no install
+
+Build `automate-web-builder.html`, or download it from a release. Then open it
+in a browser. The file works from a disk or a USB stick. It holds the whole
+editor. It needs no server, no Node and no network.
 
 ```bash
-npm run build:single     # -> dist/automate-web-builder.html
+npm run build:single     # writes dist/automate-web-builder.html
 ```
 
-Released builds attach this file to every GitHub release, so it can be downloaded
-and opened without cloning anything.
+Every release has this file attached. You can download it without a clone of
+the repository.
 
-**2. Static hosting.** `npm run build` produces a plain `dist/` of HTML, JS and
-CSS. Drop it on GitHub Pages, Netlify, or any web server. There is no backend.
-`.github/workflows/ci.yml` typechecks, tests and builds on every push, uploading
-the result as a workflow artifact. Pushing a `v*` tag runs
-`.github/workflows/release.yml`, which publishes a GitHub release with the
-standalone `.html` and a zip of the static site attached. (Pages is not used
-because it is unavailable on private repositories; `ci.yml` documents how to
-restore it if this ever becomes public.)
+### 2. A static site
 
-**3. Development.** `npm install && npm run dev` for hot reloading while working
-on the code.
+Run `npm run build`. It writes plain HTML, JavaScript and CSS into `dist/`. Put
+that folder on GitHub Pages, on Netlify, or on any web server. There is no
+back end.
 
-Node is a *build-time* tool only — it compiles TypeScript and bundles the app.
-Nothing in the running editor needs it, and no flow you open is ever uploaded:
-all parsing and writing happens in the browser.
+On each push, `.github/workflows/ci.yml` checks the types, runs the tests and
+builds the site. It uploads the result as a workflow artifact. If you push a
+`v*` tag, `.github/workflows/release.yml` publishes a GitHub release. The
+release has the single HTML file and a zip of the static site.
+
+Note: this project does not use GitHub Pages, because Pages does not work on a
+private repository. `ci.yml` records how to turn Pages on again.
+
+### 3. Development
+
+```bash
+npm install
+npm run dev
+```
+
+Node is a build tool only. It compiles the TypeScript and bundles the app. The
+editor itself does not need Node. It never uploads a flow. The browser does all
+the reading and writing.
 
 ### Block icons
 
-The block glyphs come from LlamaLab's icon font, which is **not** redistributed
-here — so a hosted build, including the GitHub Pages one, draws each block's
-initials instead. Everything works; the icons are just letters.
+The block icons come from LlamaLab's icon font. This project does not include
+that font. Without it, the editor draws the first letters of each block name.
+Everything still works.
 
-To get the real icons, supply your own copy of the APK and build locally:
+To get the real icons, use your own copy of the APK:
 
 ```bash
 node scripts/extract-apk-assets.mjs path/to/automate.apk
-npm run dev          # or: npm run build:single, which embeds the font
+npm run dev          # or npm run build:single, which embeds the font
 ```
 
-The editor detects at runtime whether the font actually loaded, because its
-glyphs sit in the Unicode Private Use Area and would otherwise render as blank
-space rather than as anything recognisable.
+The editor tests at run time whether the font loaded. The icon characters sit in
+a private area of Unicode. Without the font they draw as blank space, not as
+anything you can recognise.
 
-## Editing a flow with an AI agent
+## Edit a flow with an AI agent
 
-If you want an AI agent to edit a flow *properly* — adding blocks, rewiring
-branches, changing expressions — hand it **[docs/LLM-GUIDE.md](docs/LLM-GUIDE.md)**.
-That file is written to be self-sufficient: an agent can work from it without
-reading the source, and every example in it is executed by `tests/guide.test.ts`
-so it cannot go quietly stale.
+To let an AI agent edit a flow properly, give it
+**[docs/LLM-GUIDE.md](docs/LLM-GUIDE.md)**. An agent can add blocks, move
+connections and change expressions with it. The guide is complete on its own.
+The agent does not need to read the source. `tests/guide.test.ts` runs every
+example in the guide, so the guide cannot go out of date without a test failure.
 
-**[examples/](examples/)** builds whole flows from scratch with that API —
+**[examples/](examples/)** builds whole flows from nothing with the same API.
 `examples/app-usage-today.ts` writes a flow that asks an Android TV over ADB how
-long an app was used today, and explains how Automate's `Subroutine` block is
-used to make it a reusable function.
+long an app ran today. It also shows how the `Subroutine` block makes a function
+that you can reuse.
 
-Every block type is listed in **[docs/BLOCKS.md](docs/BLOCKS.md)**, or
-searchable from the command line:
+**[docs/BLOCKS.md](docs/BLOCKS.md)** lists every block type. You can also search
+from the command line:
 
 ```bash
 npm run blocks -- wifi           # find a block by what it does
-npm run blocks -- --id 1046      # its ports and arguments
+npm run blocks -- --id 1046      # show its ports and arguments
 ```
 
-To understand an existing flow first:
+To read an existing flow first:
 
 ```bash
-npm run explain -- path/to/flow.flo          # execution-order walkthrough
-npm run explain -- path/to/flow.flo --json   # same analysis, machine-readable
-npm run lint -- path/to/flow.flo             # will it actually work on a device?
+npm run explain -- path/to/flow.flo          # what it does, step by step
+npm run explain -- path/to/flow.flo --json   # the same, as JSON
+npm run lint -- path/to/flow.flo             # what can fail on a device
 ```
 
-## Will it work, not just load?
+## Will the flow work, not only load?
 
-A `.flo` can be perfectly well-formed and still misbehave on the phone. Two bugs
-shipped from this repo did exactly that: a dialog missing its "Show window" flag
-posted a notification and hung the fiber, and an argument the app null-checks at
-runtime threw the moment its block ran. Both files parsed, validated and
-round-tripped byte-for-byte.
+A `.flo` file can be correct and still fail on the phone. Two faults from this
+project did that. A dialog with no "Show window" flag showed a notification
+instead of a window, and the flow stopped. An argument that Automate checks at
+run time was empty, and the block failed the moment it ran. Both files parsed,
+passed validation and round-tripped byte for byte.
 
-The editor shows this as you work: a count in the toolbar, a dot on the block,
-and the finding under the field it concerns. `npm run lint` does the same from
-the command line. Its rules come from two independent places — Automate's own
-runtime guards, decompiled, and a corpus of community flows by several hundred
-authors — and every finding carries its evidence:
+The editor now reports these faults while you work. It shows a count in the tool
+bar, a dot on the block, and the reason under the field. `npm run lint` reports
+the same from the command line.
+
+The rules come from two separate sources. The first is Automate's own run-time
+checks, from the decompiled app. The second is a set of community flows by
+several hundred authors. Each report carries its own evidence:
 
 ```
 error   #7 App kill: packageName is required — the app throws
@@ -165,39 +179,30 @@ warning #4 Dialog choice?: startActivity is unset, but 2328 of 2333 real blocks
         of this type set it
 ```
 
-On every readable flow in the corpus it reports **0 errors**, which is the
-point: flows that work should be silent.
+On the flows in the test set it reports no errors. That is the point. A flow
+that works must stay silent.
 
-Build your own corpus and point the tools at it:
+To build your own set of flows and check this project against it:
 
 ```bash
-# Biggest flows first, capped per author so no one person skews the statistics
+# Largest flows first, with a limit per author so one person cannot skew the counts
 npx tsx tools/fetch-community.ts corpus --max 900 --min-statements 30
-npm run audit -- corpus                             # what does this library get wrong?
+npm run audit -- corpus
 npx tsx tools/mine-conventions.ts corpus > src/data/conventions.json
 ```
 
-`npm run audit` is the counterpart to `npm test`: the test suite needs a corpus
-it passes, this one is meant to be pointed at flows written by strangers and to
-come back with a list. On 913 flows spanning format versions v3–v112 it
-currently reports:
+`npm run audit` is the opposite of `npm test`. The test suite needs a set of
+flows that it passes. The audit expects flows from strangers, and it returns a
+list of the files that this project cannot read.
 
-| | |
-| --- | --- |
-| fully clean | 798 (87%) |
-| block types exercised against real bytes | 378 of 410 (92%) |
-| unreadable — legacy type ids Automate 1.51 also refuses | 63 |
-| unreadable — **our bug**, old-format desync | 41 |
-| unreadable — newer format than the schema (v113/v114) | 9 |
-| corrupt uploads (nonsense version, bad varint) | 2 |
+When a file fails, the error names the block that lost its place. Parsing stops
+at the first block whose statement id and grid position cannot be real. The
+error then lists the objects that it read before that block. This is how three broken block
+layouts were found. Each one had corrupted every flow that used it.
 
-When a flow does fail, the error names the block that lost its place: parsing
-stops at the first block whose statement id and grid position cannot be real,
-and reports the objects read just before it. That is how three block layouts
-were found that had desynchronised every flow using them.
+## The JSON form
 
-For a quick round trip through readable text, **Export JSON** turns the flow into
-a flat document:
+**Export JSON** writes the flow as a flat document:
 
 ```json
 {
@@ -217,13 +222,12 @@ a flat document:
 }
 ```
 
-Ask an agent to modify it, then **Import JSON** and save as `.flo`.
+Ask an agent to change it. Then use **Import JSON** and save the flow as `.flo`.
 
-Importing is deliberately lossy: blocks, positions, connections and simple
-argument values survive, but arguments that were complex expression trees come
-back as text values. **For real edits use the model API** as described in the
-guide above, not the JSON projection. Round-tripping through `.flo` is always
-lossless.
+Import loses some detail on purpose. Blocks, positions, connections and simple
+argument values survive. An argument that was a complex expression tree returns
+as a text value. For real edits, use the model API from the guide above, not the
+JSON form. A round trip through `.flo` never loses anything.
 
 ## How it works
 
@@ -232,82 +236,85 @@ tools/generate_schema.py      APK sources  -> src/data/schema.json + catalog.jso
 tools/generate_exprtable.py   APK sources  -> src/data/exprtable.json
 
 src/flo/binary.ts   varints, modified UTF-8
-src/flo/codec.ts    .flo reader/writer driven by schema.json
-src/flo/model.ts    object graph <-> editable blocks + connections
-src/flo/expr.ts     expression AST -> Automate expression source
+src/flo/codec.ts    .flo reader and writer, driven by schema.json
+src/flo/model.ts    object graph <-> blocks and connections
+src/flo/expr.ts     expression tree -> Automate expression source
 src/flo/blocks.ts   ports, categories, block captions
-src/flo/json.ts     readable JSON projection
-src/ui/             React editor
+src/flo/lint.ts     what can fail on a device
+src/flo/json.ts     the JSON form
+src/ui/             the React editor
 
-tools/explain-flow.ts   npm run explain — what does this flow do?
-tools/diff_schema.py    what changed between two Automate releases?
-docs/LLM-GUIDE.md       hand this to an AI agent instead of the source
-examples/               flows built from scratch with the model API
+tools/explain-flow.ts   npm run explain, what a flow does
+tools/diff_schema.py    what changed between two Automate releases
+docs/LLM-GUIDE.md       give this to an AI agent instead of the source
+docs/INTERNALS.md       how to change this project
+examples/               flows built from nothing with the model API
 ```
 
-The generators are checked in so the data can be regenerated for a future
-Automate release: decompile the APK with [jadx](https://github.com/skylot/jadx),
-point the scripts at its `sources/` directory, and run `tools/diff_schema.py` to
-see exactly what the release changed on the wire.
-**[docs/INTERNALS.md](docs/INTERNALS.md)** has the full procedure — supporting a
-new Automate version is meant to be a code review, not a research project.
+The scripts are part of the repository, so you can regenerate the data for a new
+Automate release. Decompile the APK with [jadx](https://github.com/skylot/jadx).
+Point the scripts at the `sources/` folder. Then run `tools/diff_schema.py` to
+see what the release changed. **[docs/INTERNALS.md](docs/INTERNALS.md)** has the
+full procedure.
 
-### The `.flo` format, briefly
+### The `.flo` format, in short
 
 ```
 "LAFl"                 magic
 u16                    format version (112 = Automate 1.51)
 zig-zag varint         next free statement id
 uvarint                statement count
-statements[]           object graph, depth-first
+statements[]           object graph, depth first
 ```
 
-Objects are a zig-zag varint type id followed by that type's payload; `0` is
-null and a negative id is a back-reference to the Nth object already written,
-which is how the app encodes an arbitrary graph without recursing forever.
-Strings are Java modified UTF-8, length-prefixed by a varint from v35 onward.
+An object is a zig-zag varint type id and then that type's payload. A `0` means
+null. A negative id points back to an object already written. This is how the
+app stores a graph without endless recursion. Strings use Java modified UTF-8.
+From v35 the string length is a varint.
 
-Each type's payload is a fixed field order gated by format version — the reason
-the schema is generated rather than written by hand: several hundred types, each
-with its own accumulated version history.
+Each type has a fixed field order. Format version rules control which fields
+appear. This is why a script generates the schema. There are several hundred
+types, and each one has its own history of versions.
 
-## Editing expressions
+## Expression fields
 
-An expression field shows Automate expression source and compiles it back when
-you commit (click away, or Ctrl/Cmd+Enter; Esc reverts). Three properties keep
-this safe:
+An expression field shows Automate expression source. It compiles the text back
+when you commit the field. To commit, click away or press Ctrl+Enter or
+Cmd+Enter. To revert, press Esc.
 
-- **Typing never writes to the flow.** The text is local until committed, so
-  re-rendering cannot rewrite what you are typing.
-- **Invalid input is refused**, with the character offset, and the previous
-  value is kept.
-- **Reformatting is a no-op.** Whitespace and line breaks between tokens are
-  insignificant, so a long value can be laid out over several lines; if the
-  result parses to the same expression, the original node is kept and the saved
+Three properties keep this safe:
+
+- **What you type does not reach the flow.** The text stays local until you
+  commit it. A redraw cannot overwrite your text.
+- **Bad input is refused.** The editor shows the character offset and keeps the
+  previous value.
+- **A reformat changes nothing.** Spaces and line breaks between tokens carry no
+  meaning, so you can lay a long value over several lines. If the new text
+  parses to the same expression, the editor keeps the original value. The saved
   file stays byte-identical.
 
-## Status and limits
+## Limits
 
-- A few statement types with Android `Parcel` payloads (Tasker plug-ins, pinned
-  shortcuts) are preserved verbatim but not editable here.
-- Editing an interpolated string resets the per-hole display flags the app
-  stores alongside it. Everything else about the value is preserved.
-- There is no undo. Reverting an uncommitted edit is Esc; beyond that, reopen
-  the file.
-
-## Contributing to a new Automate release
-
-See [docs/INTERNALS.md](docs/INTERNALS.md). Short version: re-run the
-generators, read the schema diff, and confirm the round-trip tests still pass
-against real flows.
+- A few block types carry an Android `Parcel` payload. Tasker plug-ins and
+  pinned shortcuts are the common ones. This project keeps the payload as it is,
+  but you cannot edit it here.
+- If you edit a string that has `{expression}` holes, the per-hole display flags
+  reset. Everything else about the value stays.
+- There is no undo. Press Esc to revert a field that you have not committed. For
+  anything else, open the file again.
 
 ## Contributing
 
-Bug reports with the `.flo` file that triggered them are the most useful thing —
-especially any file that fails to load or does not round-trip. Run
-`FLO_FIXTURES=... npm test` first; if a file fails that test, that is the bug.
+The most useful bug report has the `.flo` file that caused the fault. A file
+that fails to load, or that does not round-trip, is the best of all. Run
+`FLO_FIXTURES=... npm test` first. If a file fails that test, that file is the
+bug.
+
+To support a new Automate release, read
+**[docs/INTERNALS.md](docs/INTERNALS.md)**. In short: run the generators again,
+read the schema diff, and check that the round-trip tests still pass.
 
 ## Licence
 
-MIT for this code. Automate, the `.flo` format and the icon font are the property
-of LlamaLab.
+The code is MIT. Automate, the `.flo` format and the icon font belong to
+LlamaLab.
