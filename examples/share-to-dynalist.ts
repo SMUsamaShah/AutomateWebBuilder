@@ -18,6 +18,10 @@
  * The API token is not stored in this file. On the first run the flow asks for
  * it and writes it to `storage("internal", …)`, a directory private to this
  * flow. That keeps the token out of any copy of the flow you share.
+ *
+ * When Dynalist refuses an item it still answers HTTP 200 and names the reason
+ * in the reply. The flow writes that reply to the flow log, because a toast is
+ * gone before you can read it. The request is never logged: it holds the token.
  */
 
 import { writeFileSync } from 'node:fs';
@@ -148,12 +152,28 @@ export function buildFlow(): FlowModel {
     '"Saved to Dynalist:\\n{substr(sharedTitle || sharedText, 0, 60)}"',
   );
 
-  const refused = add(model, 'ToastShow', 24, 48);
+  // A toast is gone in a few seconds and it truncates. Dynalist puts the reason
+  // in the reply body — "NoInbox" when you have not picked an inbox document,
+  // "InvalidToken" for a bad token — so write the whole reply to the flow log,
+  // where you can still read it later.
+  //
+  // Log the reply, never the request. The request body carries the token.
+  const logRefused = add(model, 'LogAppend', 24, 48);
+  logRefused.raw.message = parseExpression(
+    '"Dynalist refused the item. HTTP {httpCode}\\n" ++ trim(httpBody)',
+  );
+  logRefused.raw.whenLogging = parseExpression('0');
+
+  const refused = add(model, 'ToastShow', 24, 54);
   refused.raw.message = parseExpression(
-    '"Dynalist did not save it.\\nHTTP {httpCode}\\n" ++ substr(trim(httpBody), 0, 120)',
+    '"Dynalist refused it. See the flow log.\\n" ++ substr(trim(httpBody), 0, 100)',
   );
 
-  const unreachable = add(model, 'ToastShow', 34, 36);
+  const logUnreachable = add(model, 'LogAppend', 34, 36);
+  logUnreachable.raw.message = parseExpression('"Could not reach Dynalist. {shareError}"');
+  logUnreachable.raw.whenLogging = parseExpression('0');
+
+  const unreachable = add(model, 'ToastShow', 34, 42);
   unreachable.raw.message = parseExpression('"Could not reach Dynalist.\\n{shareError}"');
 
   connect(model, begin.id, 'onComplete', tokenPath.id);
@@ -168,10 +188,12 @@ export function buildFlow(): FlowModel {
 
   connect(model, share.id, 'onComplete', guard.id);
   connect(model, guard.id, 'onComplete', post.id);
-  connect(model, guard.id, 'onFailure', unreachable.id);
+  connect(model, guard.id, 'onFailure', logUnreachable.id);
+  connect(model, logUnreachable.id, 'onComplete', unreachable.id);
   connect(model, post.id, 'onComplete', accepted.id);
   connect(model, accepted.id, 'onPositive', saved.id);
-  connect(model, accepted.id, 'onNegative', refused.id);
+  connect(model, accepted.id, 'onNegative', logRefused.id);
+  connect(model, logRefused.id, 'onComplete', refused.id);
 
   // Every path returns to the share block, so the flow catches the next share.
   connect(model, saved.id, 'onComplete', share.id);
