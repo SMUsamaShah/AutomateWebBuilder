@@ -494,3 +494,49 @@ body.resizing {
 .field .note.error {
   color: var(--red);
 }
+
+/* ---- lint findings -------------------------------------------------------
+   A finding is about a field that is *empty*, and an empty field looks exactly
+   like one deliberately left empty. Nothing on the flowchart says otherwise
+   unless something is drawn, so problems are marked in three places: a count in
+   the toolbar, a dot on the block, and the message under the field itself. */
+
+.btn.issues {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+
+.btn.issues.has-errors {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.block .issue-dot {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--orange);
+}
+
+.block .issue-dot.error {
+  background: var(--red);
+}
+
+.finding {
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 4px 0 2px;
+  padding: 5px 7px;
+  border-radius: 4px;
+  border-left: 2px solid var(--orange);
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
+  color: var(--ink);
+}
+
+.finding.error {
+  border-left-color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+}

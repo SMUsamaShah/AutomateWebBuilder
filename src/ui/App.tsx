@@ -16,6 +16,8 @@ import {
   toModel,
 } from '../flo/model';
 import { toJsonFlow, fromJsonFlow } from '../flo/json';
+import { lintFlow } from '../flo/lint';
+import { useLint } from './useLint';
 import type { Block, BlockId, FlowModel } from '../flo/model';
 
 /** React state holds a version counter because the model is mutated in place. */
@@ -80,7 +82,14 @@ export function App() {
   const saveFlo = () => {
     try {
       download(`${doc.name || 'flow'}.flo`, fromModel(doc.model), 'application/octet-stream');
-      say('Saved. Copy it to your device and open it with Automate to import.');
+      const problems = lintFlow(doc.model);
+      const errors = problems.filter((p) => p.severity === 'error').length;
+      say(
+        problems.length === 0
+          ? 'Saved. Copy it to your device and open it with Automate to import.'
+          : `Saved, but ${errors ? `${errors} error(s) and ` : ''}` +
+            `${problems.length - errors} warning(s) — see the marked blocks.`,
+      );
     } catch (err) {
       say(`Save failed: ${(err as Error).message}`);
     }
@@ -106,6 +115,8 @@ export function App() {
 
   const selectedBlock: Block | null =
     doc.model.blocks.find((b) => b.id === selected) ?? null;
+
+  const lint = useLint(doc.model, doc.rev);
 
   return (
     <div className="app">
@@ -139,6 +150,21 @@ export function App() {
         </button>
 
         <span className="hint">{doc.model.blocks.length} blocks</span>
+
+        {lint.all.length > 0 && (
+          <button
+            className={`btn issues${lint.errors ? ' has-errors' : ''}`}
+            onClick={() => setSelected(lint.first)}
+            title={
+              'Fields the app fills in that these blocks leave empty. ' +
+              'Click to jump to the first.'
+            }
+          >
+            {lint.errors > 0 && `${lint.errors} error${lint.errors > 1 ? 's' : ''}`}
+            {lint.errors > 0 && lint.warnings > 0 && ', '}
+            {lint.warnings > 0 && `${lint.warnings} warning${lint.warnings > 1 ? 's' : ''}`}
+          </button>
+        )}
 
         <input
           ref={fileRef}
@@ -187,6 +213,7 @@ export function App() {
           key={doc.docId}
           model={doc.model}
           selected={selected}
+          issues={lint.severityByBlock}
           onSelect={setSelected}
           onMoveBlock={(id, x, y) => {
             const b = doc.model.blocks.find((k) => k.id === id);
@@ -217,6 +244,7 @@ export function App() {
 
         <Inspector
           block={selectedBlock}
+          findings={selected ? (lint.byBlock.get(selected) ?? []) : []}
           onChange={(block, field, value) => {
             block.raw[field] = value;
             touch();

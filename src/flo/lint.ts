@@ -37,8 +37,8 @@ interface Tally {
 
 const required = requiredJson as Record<string, string[]>;
 const observed = (conventionsJson as { fields: Record<string, Record<string, Tally>> }).fields;
-/** A field set in at least this share of real blocks is treated as expected. */
-const CONVENTION_RATIO = 0.98;
+/** Must match `tools/mine-conventions.ts`, which documents the calibration. */
+const CONVENTION_RATIO = 0.95;
 
 export interface LintFinding {
   blockId: string;

@@ -14,6 +14,8 @@ import type { Block, BlockId, FlowModel } from '../flo/model';
 interface Props {
   model: FlowModel;
   selected: BlockId | null;
+  /** Block id -> worst finding severity, for the corner marker. */
+  issues?: Map<BlockId, 'error' | 'warning'>;
   onSelect: (id: BlockId | null) => void;
   onMoveBlock: (id: BlockId, x: number, y: number) => void;
   onConnect: (from: BlockId, port: string, to: BlockId) => void;
@@ -140,6 +142,7 @@ function edgePath(from: Point, side: 'top' | 'bottom' | 'right', to: Point): str
 export function Canvas({
   model,
   selected,
+  issues,
   onSelect,
   onMoveBlock,
   onConnect,
@@ -348,6 +351,7 @@ export function Canvas({
             key={b.id}
             block={b}
             selected={selected === b.id}
+            issue={issues?.get(b.id) ?? null}
             armedPort={armed?.id === b.id ? armed.port : null}
             onPointerDown={onBlockPointerDown}
             onPortClick={onPortClick}

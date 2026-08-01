@@ -84,14 +84,22 @@ describe('flow linting', () => {
 
   it('catches a dialog that would post a notification instead of a window', () => {
     const model = buildFlow();
-    for (const b of model.blocks) {
-      if (/^Dialog/.test(b.entry?.name ?? '')) b.raw.startActivity = null;
-    }
+    const dialogs = model.blocks.filter((b) => /^Dialog/.test(b.entry?.name ?? ''));
+    for (const b of dialogs) b.raw.startActivity = null;
+
     const found = lintFlow(model);
-    expect(found.length).toBeGreaterThan(0);
     expect(found.every((f) => f.field === 'startActivity')).toBe(true);
     // The evidence has to travel with the finding, or it cannot be judged.
     expect(found[0].message).toMatch(/\d+ of \d+ real blocks/);
+
+    // *Every* dialog, not just the most uniform one. Widening the corpus once
+    // dropped Dialog message from 98.8% to 96.4% and it fell below the bar,
+    // silently un-catching the exact defect that hung a flow twice — while this
+    // test still passed on Dialog choice at 99.8%. Naming each block type is
+    // what makes the calibration a thing that can fail.
+    expect(new Set(found.map((f) => f.blockId))).toEqual(
+      new Set(dialogs.map((b) => b.id)),
+    );
   });
 
   it('survives a save/load cycle without changing its mind', () => {

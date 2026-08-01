@@ -151,7 +151,9 @@ posted a notification and hung the fiber, and an argument the app null-checks at
 runtime threw the moment its block ran. Both files parsed, validated and
 round-tripped byte-for-byte.
 
-`npm run lint` catches that class of mistake. Its rules come from two
+The editor shows this as you work: a count in the toolbar, a dot on the block,
+and the finding under the field it concerns. `npm run lint` does the same from
+the command line. Its rules come from two
 independent places — Automate's own runtime guards, decompiled, and a corpus of
 ~800 community flows by ~500 authors — and every finding carries its evidence:
 

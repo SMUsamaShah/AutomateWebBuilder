@@ -12,6 +12,14 @@ export const BLOCK_H = 72;
 interface Props {
   block: Block;
   selected: boolean;
+  /**
+   * Worst lint severity on this block, or null.
+   *
+   * Marked on the block itself because the fields these findings are about are
+   * empty, and an empty field looks exactly like one you meant to leave empty —
+   * there is nothing on the flowchart to notice unless something is drawn.
+   */
+  issue?: 'error' | 'warning' | null;
   /** Port currently armed for connecting, if it belongs to this block. */
   armedPort: string | null;
   onPointerDown: (e: React.PointerEvent, block: Block) => void;
@@ -22,6 +30,7 @@ interface Props {
 function BlockViewImpl({
   block,
   selected,
+  issue = null,
   armedPort,
   onPointerDown,
   onPortClick,
@@ -40,6 +49,7 @@ function BlockViewImpl({
       title={`#${block.id} ${entry?.title ?? ''}\n${entry?.summary ?? ''}`}
     >
       <span className="badge">{block.id}</span>
+      {issue && <span className={`issue-dot ${issue}`} title="Has a lint finding" />}
 
       {glyph ? (
         <span className="icon">{glyph}</span>

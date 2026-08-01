@@ -11,16 +11,34 @@ import { editableFields, fieldLabel } from '../flo/blocks';
 import { isPrimitiveBox, primitiveText, withPrimitiveText } from '../flo/expr';
 import { ExpressionField } from './ExpressionField';
 import type { Block } from '../flo/model';
+import type { LintFinding } from '../flo/lint';
 
 interface Props {
   block: Block | null;
+  /** Findings for this block, shown against the field each concerns. */
+  findings?: LintFinding[];
   onChange: (block: Block, field: string, value: unknown) => void;
   onDelete: (block: Block) => void;
 }
 
+/**
+ * A warning under the field it is about.
+ *
+ * The message carries its own evidence — "300 of 300 real blocks of this type
+ * set it" — because the alternative is asking to be believed about a field
+ * whose absence is legal, and which the app will happily save either way.
+ */
+function Finding({ finding }: { finding: LintFinding }) {
+  return (
+    <div className={`finding ${finding.severity}`}>
+      {finding.severity === 'error' ? '⚠' : 'ⓘ'} {finding.message}
+    </div>
+  );
+}
+
 const DOC_BASE = 'https://llamalab.com/automate/doc/block/';
 
-export function Inspector({ block, onChange, onDelete }: Props) {
+export function Inspector({ block, findings = [], onChange, onDelete }: Props) {
   if (!block) {
     return (
       <div className="panel inspector">
@@ -37,6 +55,11 @@ export function Inspector({ block, onChange, onDelete }: Props) {
 
   const entry = block.entry;
   const fields = editableFields(block.typeId);
+  const byField = new Map(findings.map((f) => [f.field, f]));
+  const note = (name: string) => {
+    const f = byField.get(name);
+    return f ? <Finding finding={f} /> : null;
+  };
 
   return (
     <div className="panel inspector">
@@ -56,6 +79,12 @@ export function Inspector({ block, onChange, onDelete }: Props) {
       </div>
 
       <div className="scroll">
+        {findings
+          .filter((f) => !fields.some((x) => x.name === f.field))
+          .map((f) => (
+            <Finding key={f.field} finding={f} />
+          ))}
+
         {fields.length === 0 && <div className="empty">This block has no editable arguments.</div>}
 
         {fields.map((f) => {
@@ -74,16 +103,20 @@ export function Inspector({ block, onChange, onDelete }: Props) {
                       onChange(block, f.name, withPrimitiveText(value, e.target.value))
                     }
                   />
+                  {note(f.name)}
                 </div>
               );
             }
             return (
-              <ExpressionField
-                key={`${block.id}:${f.name}`}
-                label={fieldLabel(f.name)}
-                value={value}
-                onCommit={(next) => onChange(block, f.name, next)}
-              />
+              <div key={f.name}>
+                <ExpressionField
+                  key={`${block.id}:${f.name}`}
+                  label={fieldLabel(f.name)}
+                  value={value}
+                  onCommit={(next) => onChange(block, f.name, next)}
+                />
+                {note(f.name)}
+              </div>
             );
           }
 
@@ -96,6 +129,7 @@ export function Inspector({ block, onChange, onDelete }: Props) {
                   value={(value as string) ?? ''}
                   onChange={(e) => onChange(block, f.name, e.target.value || null)}
                 />
+                {note(f.name)}
               </div>
             );
           }
@@ -111,6 +145,7 @@ export function Inspector({ block, onChange, onDelete }: Props) {
                   <option value="0">No</option>
                   <option value="1">Yes</option>
                 </select>
+                {note(f.name)}
               </div>
             );
           }
@@ -124,6 +159,7 @@ export function Inspector({ block, onChange, onDelete }: Props) {
                   value={Number(value ?? 0)}
                   onChange={(e) => onChange(block, f.name, Number(e.target.value))}
                 />
+                {note(f.name)}
               </div>
             );
           }

@@ -219,9 +219,12 @@ export function buildFlow(): FlowModel {
   guard.raw.retryLimit = parseExpression('1');
   guard.raw.varFailureMessage = variableRef('usageError');
 
+  // An explicit `null` rather than an empty Value field. Both assign null, but
+  // an empty field is indistinguishable from one nobody filled in — which is
+  // what the linter says about it, and it is right to.
   const clear = add(model, 'VariableAssign', 20, 6);
   clear.raw.variable = variableRef('usageError');
-  clear.raw.value = null;
+  clear.raw.value = parseExpression('null');
 
   const adb = add(model, 'AdbShellCommand', 20, 12);
   adb.raw.host = parseExpression('usageHost');
