@@ -1,49 +1,58 @@
 # Automate Web Builder
 
-A web page for editing LlamaLab Automate `.flo` files.
+This project is a web page. It edits LlamaLab Automate `.flo` files.
 
-The `.flo` format is not documented. The files in `src/data/` describe it, and
-are generated from a decompiled copy of the Automate APK.
+Automate does not document the `.flo` file format. The scripts in `tools/` read
+a decompiled copy of the Automate APK. They write the format data into
+`src/data/`.
 
-## Where to look
+## Which document to read
 
-| For | Read |
+| Your task | Document |
 | --- | --- |
-| Reading or editing a flow with this library | `docs/LLM-GUIDE.md` |
-| Changing the library, codec, generators or schema | `docs/INTERNALS.md` |
-| Finding a block type | `docs/BLOCKS.md`, or `npm run blocks -- <query>` |
-| Counts and figures | `docs/STATS.md` |
+| Read or edit a flow with this library | `docs/LLM-GUIDE.md` |
+| Change the library, the codec or the generators | `docs/INTERNALS.md` |
+| Find a block type | `docs/BLOCKS.md` |
+| Find a count or a figure | `docs/STATS.md` |
 
-`docs/LLM-GUIDE.md` covers everything needed to use the library. You do not need
-to read `src/`.
+`docs/LLM-GUIDE.md` is complete. To use the library, you do not need to read
+`src/`.
 
 ## Rules
 
-- Do not edit `src/data/*.json`, `docs/STATS.md` or `docs/BLOCKS.md`. They are
-  generated. Run the generator instead.
-- Do not write counts or figures into the docs. They go out of date. Link to
-  `docs/STATS.md`.
-- Do not commit `.flo` files or `public/fonts/AutomateIcons.ttf`. Both are in
-  `.gitignore`.
-- A field with `op: 'obj'` does not accept every kind of expression. Call
-  `fieldKind(typeId, field)` to see what it accepts. `continuity` takes
-  `integerBox(1)`.
-- Call `validateModel(model)` before saving. Then `lintFlow(model)`: a file can
-  be valid and still hang when Automate runs it.
-- Opening a `.flo` and saving it without changes must produce the same bytes.
-  `FLO_FIXTURES=<dir> npm test` checks this.
+Do not edit these files. A script writes them:
+
+- `src/data/*.json`
+- `docs/STATS.md`
+- `docs/BLOCKS.md`
+
+Do not write a count or a figure into a document. The number goes out of date.
+Link to `docs/STATS.md`.
+
+Do not commit `.flo` files. Do not commit `public/fonts/AutomateIcons.ttf`. Git
+ignores both files.
+
+A field with `op: 'obj'` does not accept every expression. Call
+`fieldKind(typeId, field)` first. This function gives the type that the field
+accepts. The `continuity` field takes `integerBox(1)`.
+
+Before you save a flow, call `validateModel(model)`. Then call
+`lintFlow(model)`. A file can be correct and still fail when Automate runs it.
+
+If you open a `.flo` file and save it with no changes, the bytes must stay the
+same. To test this, run `FLO_FIXTURES=<dir> npm test`.
 
 ## Commands
 
-| Command | Does |
+| Command | Result |
 | --- | --- |
-| `npm run dev` | start the editor with hot reload |
-| `npm test` | run the tests. `FLO_FIXTURES=<dir>` adds tests against real flows |
-| `npm run explain -- f.flo` | print what a flow does, in run order |
-| `npm run lint -- f.flo` | check a flow for things that fail on a device |
-| `npm run blocks -- wifi` | search block types. `--all` lists them all |
-| `npm run audit -- corpus/` | check a folder of flows for ones this cannot read |
-| `npm run docs:stats` | regenerate `docs/STATS.md` |
-| `npm run build` | build the site into `dist/` |
-| `npm run build:single` | build one self-contained HTML file |
-| `npm run build:all` | both. `build` empties `dist/`, so the order matters |
+| `npm run dev` | Starts the editor. Reloads it after each change. |
+| `npm test` | Runs the tests. `FLO_FIXTURES=<dir>` adds tests against real flows. |
+| `npm run explain -- f.flo` | Prints what a flow does, step by step. |
+| `npm run lint -- f.flo` | Reports the parts of a flow that can fail on a device. |
+| `npm run blocks -- wifi` | Searches the block types. `--all` prints all of them. |
+| `npm run audit -- corpus/` | Reads every flow in a folder. Reports the files that this project cannot read. |
+| `npm run docs:stats` | Writes `docs/STATS.md` again. |
+| `npm run build` | Builds the web page into `dist/`. |
+| `npm run build:single` | Builds one HTML file with everything inside it. |
+| `npm run build:all` | Builds both. `npm run build` empties `dist/`, so the order is important. |
