@@ -1,15 +1,21 @@
-# Working with Automate `.flo` files — guide for an AI agent
+# Reading and editing Automate flows — guide for an AI agent
 
 You have been handed this repository and asked to read, analyse or edit an
 Automate flow. **This file is enough. Do not read the rest of the source to get
 started.** Everything below is verified against the real library; the examples
 in it are executed by `tests/guide.test.ts`, so if the API changes the tests
-fail rather than this document going quietly stale.
+fail rather than this document going quietly stale. No figure is quoted here
+that could go out of date — counts live in [STATS.md](STATS.md), generated from
+the data.
 
 Automate stores a flow as `.flo`, a binary format. This project decodes it, and
 its central guarantee is that **loading a flow and saving it untouched
 reproduces the file byte for byte**. Your job is to preserve that: change what
 was asked and nothing else.
+
+> Changing the **library itself** — the generators, the schema, the corpus
+> tooling — is a different job with different rules: see
+> [INTERNALS.md](INTERNALS.md). You do not need it to edit a flow.
 
 ---
 
@@ -120,7 +126,8 @@ usually identify it from its position in `editableFields()`.
 
 ## 4. Discovering blocks, and their fields and ports
 
-There are **410 block types**. Never guess an id or a field name: an unknown id
+There are **several hundred block types** ([STATS.md](STATS.md) has the exact
+count and the split by category). Never guess an id or a field name: an unknown id
 throws, and a misspelled field is silently ignored and its value lost. Three
 ways to find what you need, cheapest first.
 
@@ -145,10 +152,10 @@ not for a class name you have imagined.
 
 ### b. The complete listing, when you do not
 
-**[BLOCKS.md](BLOCKS.md)** is all 410 blocks with id, name, title and a
-one-line description, grouped into the same categories the app uses. It is about
-8,000 tokens — small enough to read in full when you need the whole vocabulary,
-and the reliable answer to "what can Automate even do?".
+**[BLOCKS.md](BLOCKS.md)** is every block with id, name, title and a one-line
+description, grouped into the same categories the app uses. It is a few thousand
+tokens — small enough to read in full when you need the whole vocabulary, and the
+reliable answer to "what can Automate even do?".
 
 ```bash
 npm run blocks                    # category overview with counts
@@ -156,10 +163,7 @@ npm run blocks -- --all           # print every block type
 npm run blocks -- --id 1046       # ports and arguments of one block
 ```
 
-Category sizes, for orientation: Connectivity 70, Camera & sound 56, Apps 51,
-Interface 38, File & storage 31, Content 29, Battery & power 25, Sensor 14,
-Telephony 14, Messaging 12, Flow 12, Date & time 11, Location 10, Concurrency
-10, Settings 9, General 8, Other 10.
+For orientation on which categories are large, see [STATS.md](STATS.md).
 
 ### c. Programmatically, inside an edit script
 
@@ -221,8 +225,8 @@ expression. Always check `op` before assigning (§5).
 
 **`op: 'obj'` does not mean "any expression".** The app casts each argument as it
 reads it, so the wrong node type is a `ClassCastException` when Automate loads
-the flow — a failure you will only see on the phone. 616 of 2,424 argument
-fields are strictly typed this way, across 251 of the 410 block types.
+the flow — a failure you will only see on the phone. Most arguments are not
+free-form expressions; [STATS.md](STATS.md) has the breakdown by kind.
 
 Ask the library rather than guessing:
 
@@ -315,7 +319,7 @@ if (problems.length) throw new Error(problems.join('\n'));
 
 It reports wrong-typed arguments, ports assigned instead of connected, dangling
 connections, and fields gated above the flow's format version (§9). It is clean
-across the 1,134-flow corpus, so in practice anything it reports on a flow you
+across the whole corpus, so in practice anything it reports on a flow you
 edited is yours — but treat that as a strong prior, not a proof. It has been
 wrong once already: it rejected a `null` inside a destructuring assign's
 variable list, which is legal and means "skip this position". If it flags
@@ -502,8 +506,9 @@ every structural check and still misbehaved on the phone: an argument the app
 null-checks at runtime, and a dialog without `startActivity`. Both files parsed,
 validated, explained and round-tripped perfectly.
 
-Its rules come from the app's own runtime guards plus a corpus of ~390 real
-flows by ~250 authors, and every finding carries its evidence:
+Its rules come from the app's own runtime guards plus a corpus of real flows by
+several hundred authors ([STATS.md](STATS.md)), and every finding carries its
+own evidence:
 
 ```ts
 import { lintFlow, formatFindings } from './src/flo/lint';
@@ -514,15 +519,17 @@ console.warn(formatFindings(findings));   // warnings are advice, read them
 ```
 
 ```
-error   #7 HTTP request: url is required — the app throws
-        RequiredArgumentNullException, and all 133 real blocks of this type set it
-warning #4 Dialog choice?: startActivity is unset, but 300 of 300 real blocks
+error   #7 App kill: packageName is required — the app throws
+        RequiredArgumentNullException, and all 464 real blocks of this type set it
+warning #4 Dialog choice?: startActivity is unset, but 2328 of 2333 real blocks
         of this type set it
 ```
 
-An **error** means the code and the corpus agree; treat it as a bug. A
-**warning** means one source is unsure — usually a field the app checks only on
-some paths. Read them; do not silence them.
+An **error** means the app's own code requires the field *and* no real flow was
+ever seen without it; treat it as a bug. A **warning** means one source is
+unsure — usually a field the app checks only on some paths, or one with real
+exceptions. The counts are in the message so you can judge rather than take it
+on faith. Read them; do not silence them.
 
 In a script, assert rather than hope:
 
@@ -556,7 +563,7 @@ device is not.
 
 - **Version ceiling.** A file newer than `CURRENT_VERSION` (112) is refused with
   a clear error. That means the schema needs regenerating from a newer APK — see
-  `UPGRADING.md`. Do not try to bypass it.
+  [INTERNALS.md](INTERNALS.md). Do not try to bypass it.
 - **`version` is preserved, not upgraded.** A v85 flow saves as v85. Do not
   "modernise" it; that is what keeps old files byte-exact.
 - **Statement ids are strings in the model, `bigint` on the wire.** Use
@@ -582,8 +589,8 @@ device is not.
 - **Grid coordinates are signed.** Real flows use negatives freely (one of the
   fixtures starts at `x = -3, y = -29`). Do not clamp to zero or assume an origin.
 - **Adding a modern block to an old flow silently drops its newer arguments.**
-  456 of 3,719 block fields are version-gated, and saving skips any gated above
-  `model.version`. `validateModel` reports this; raising `model.version` to
+  Several hundred block fields are version-gated ([STATS.md](STATS.md)), and
+  saving skips any gated above `model.version`. `validateModel` reports this; raising `model.version` to
   `CURRENT_VERSION` fixes it but ends byte-exactness, so make it a deliberate
   choice and tell the user.
 - **`_anon…` field names** are placeholders for values the app reads and throws
@@ -602,7 +609,8 @@ device is not.
 | expressions | `src/flo/exprparse.ts` — `parseExpression`; `src/flo/expr.ts` — `renderExpression`, `stringLiteral`, `numberLiteral`, `variableRef`, `integerBox` |
 | raw bytes, wire schema | `src/flo/codec.ts` — `parseFlo`, `writeFlo`, `schema`, `CURRENT_VERSION` |
 | readable JSON (not for editing) | `src/flo/json.ts` — `toJsonFlow`, `fromJsonFlow` |
-| all 410 block types | `docs/BLOCKS.md`, or `npm run blocks -- <query>` |
+| every block type | `docs/BLOCKS.md`, or `npm run blocks -- <query>` |
+| counts and figures | `docs/STATS.md` (generated) |
 
 Generated data — `src/data/schema.json`, `catalog.json`, `exprtable.json` — is
 produced from the app's compiled code by `tools/`. **Never hand-edit it.**

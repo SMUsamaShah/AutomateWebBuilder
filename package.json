@@ -15,7 +15,8 @@
     "blocks": "tsx tools/blocks.ts",
     "build:all": "npm run build && npm run build:single",
     "lint": "tsx tools/lint-flow.ts",
-    "audit": "tsx tools/audit-corpus.ts"
+    "audit": "tsx tools/audit-corpus.ts",
+    "docs:stats": "tsx tools/generate-stats.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

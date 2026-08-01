@@ -16,7 +16,7 @@ desktop, plus a readable JSON projection you can hand to an AI agent.
 - **Open and save `.flo` files.** The binary format is implemented from the app's
   own serialization code, including its per-version field gates, so files from
   older Automate versions load correctly and files you save are byte-compatible.
-- **All 410 block types**, with the app's own titles, summaries, icons, and
+- **Every block type**, with the app's own titles, summaries, icons, and
   documentation links — searchable and grouped by category.
 - **The flowchart, as the app draws it.** Same grid, block shape, connector
   colours (IN/OK/YES/NO/FAIL/DO/NEW), and orthogonal connection routing.
@@ -127,7 +127,7 @@ so it cannot go quietly stale.
 long an app was used today, and explains how Automate's `Subroutine` block is
 used to make it a reusable function.
 
-All 410 block types are listed in **[docs/BLOCKS.md](docs/BLOCKS.md)**, or
+Every block type is listed in **[docs/BLOCKS.md](docs/BLOCKS.md)**, or
 searchable from the command line:
 
 ```bash
@@ -247,9 +247,9 @@ examples/               flows built from scratch with the model API
 The generators are checked in so the data can be regenerated for a future
 Automate release: decompile the APK with [jadx](https://github.com/skylot/jadx),
 point the scripts at its `sources/` directory, and run `tools/diff_schema.py` to
-see exactly what the release changed on the wire. **[UPGRADING.md](UPGRADING.md)**
-has the full procedure — supporting a new Automate version is meant to be a code
-review, not a research project.
+see exactly what the release changed on the wire.
+**[docs/INTERNALS.md](docs/INTERNALS.md)** has the full procedure — supporting a
+new Automate version is meant to be a code review, not a research project.
 
 ### The `.flo` format, briefly
 
@@ -296,8 +296,9 @@ this safe:
 
 ## Contributing to a new Automate release
 
-See [UPGRADING.md](UPGRADING.md). Short version: re-run two generators, read the
-schema diff, and confirm the round-trip tests still pass against real flows.
+See [docs/INTERNALS.md](docs/INTERNALS.md). Short version: re-run the
+generators, read the schema diff, and confirm the round-trip tests still pass
+against real flows.
 
 ## Contributing
 

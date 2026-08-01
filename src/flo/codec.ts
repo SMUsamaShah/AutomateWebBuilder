@@ -178,7 +178,7 @@ class Decoder {
       throw new FloFormatError(
         `This flow was saved in format v${this.version}, but this build only ` +
           `understands up to v${CURRENT_VERSION}. It was probably created by a ` +
-          `newer version of Automate — see UPGRADING.md for regenerating the schema.`,
+          `newer version of Automate — see docs/INTERNALS.md for regenerating the schema.`,
       );
     }
     this.varlenUtf = this.version >= VARLEN_UTF_SINCE;
