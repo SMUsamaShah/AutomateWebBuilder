@@ -1,46 +1,49 @@
 # Automate Web Builder
 
-Browser editor for LlamaLab Automate `.flo` files. The binary format was
-reverse-engineered from the app. Everything in `src/data/*.json` is generated
-from the decompiled APK.
+A web page for editing LlamaLab Automate `.flo` files.
+
+The `.flo` format is not documented. The files in `src/data/` describe it, and
+are generated from a decompiled copy of the Automate APK.
 
 ## Where to look
 
 | For | Read |
 | --- | --- |
-| Reading or editing a flow with the library | `docs/LLM-GUIDE.md` |
+| Reading or editing a flow with this library | `docs/LLM-GUIDE.md` |
 | Changing the library, codec, generators or schema | `docs/INTERNALS.md` |
 | Finding a block type | `docs/BLOCKS.md`, or `npm run blocks -- <query>` |
-| Any count or figure | `docs/STATS.md` (generated) |
+| Counts and figures | `docs/STATS.md` |
 
-`docs/LLM-GUIDE.md` is self-sufficient. You do not need to read `src/` to use
-the library.
+`docs/LLM-GUIDE.md` covers everything needed to use the library. You do not need
+to read `src/`.
 
 ## Rules
 
-- `src/data/*.json`, `docs/STATS.md` and `docs/BLOCKS.md` are generated.
-  Regenerate them; do not edit them.
-- Do not put a derived number in prose. Link to `docs/STATS.md`.
-- Do not commit `.flo` files or `public/fonts/AutomateIcons.ttf`. Both are
-  gitignored on purpose.
-- `op: 'obj'` on an argument does not mean "any expression". Check
-  `fieldKind(typeId, field)` first. `continuity` needs `integerBox(1)`.
-- Run `validateModel(model)` before saving, then `lintFlow(model)`. A valid file
-  can still hang on the device.
-- Loading a `.flo` and saving it unchanged must produce identical bytes.
+- Do not edit `src/data/*.json`, `docs/STATS.md` or `docs/BLOCKS.md`. They are
+  generated. Run the generator instead.
+- Do not write counts or figures into the docs. They go out of date. Link to
+  `docs/STATS.md`.
+- Do not commit `.flo` files or `public/fonts/AutomateIcons.ttf`. Both are in
+  `.gitignore`.
+- A field with `op: 'obj'` does not accept every kind of expression. Call
+  `fieldKind(typeId, field)` to see what it accepts. `continuity` takes
+  `integerBox(1)`.
+- Call `validateModel(model)` before saving. Then `lintFlow(model)`: a file can
+  be valid and still hang when Automate runs it.
+- Opening a `.flo` and saving it without changes must produce the same bytes.
   `FLO_FIXTURES=<dir> npm test` checks this.
 
 ## Commands
 
 | Command | Does |
 | --- | --- |
-| `npm run dev` | editor, hot reload |
-| `npm test` | tests; `FLO_FIXTURES=<dir>` adds the fidelity suite |
-| `npm run explain -- f.flo` | what a flow does, in execution order |
-| `npm run lint -- f.flo` | will it work on a device |
-| `npm run blocks -- wifi` | find a block; `--all` lists every one |
-| `npm run audit -- corpus/` | what the library still gets wrong |
-| `npm run docs:stats` | refresh `docs/STATS.md` |
-| `npm run build` | static site to `dist/` |
-| `npm run build:single` | one self-contained HTML file |
-| `npm run build:all` | both, in the order that works |
+| `npm run dev` | start the editor with hot reload |
+| `npm test` | run the tests. `FLO_FIXTURES=<dir>` adds tests against real flows |
+| `npm run explain -- f.flo` | print what a flow does, in run order |
+| `npm run lint -- f.flo` | check a flow for things that fail on a device |
+| `npm run blocks -- wifi` | search block types. `--all` lists them all |
+| `npm run audit -- corpus/` | check a folder of flows for ones this cannot read |
+| `npm run docs:stats` | regenerate `docs/STATS.md` |
+| `npm run build` | build the site into `dist/` |
+| `npm run build:single` | build one self-contained HTML file |
+| `npm run build:all` | both. `build` empties `dist/`, so the order matters |
