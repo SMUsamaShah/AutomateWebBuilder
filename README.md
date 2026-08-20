@@ -1,5 +1,8 @@
 # Automate Web Builder
 
+![screenshot.png](screenshot.png)
+
+
 This project is a web page. It opens a [LlamaLab Automate](https://llamalab.com/automate/)
 `.flo` file, edits it, and saves it again. Automate reads the saved file without an
 error.
