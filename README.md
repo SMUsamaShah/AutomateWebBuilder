@@ -128,6 +128,23 @@ npm run dev          # or npm run build:single, which embeds the font
 The editor checks at run time whether the font loaded. The icon characters sit in a
 private area of Unicode. Without the font, they draw as blank space.
 
+## Use the editor
+
+Drag a block from the list on the left onto the canvas. Click a block to select
+it. The panel on the right shows its arguments.
+
+To connect two blocks, do one of these:
+
+- Press an output port (OK, YES, NO, FAIL, DO or NEW) and drag to the target
+  block. Drop anywhere on that block. You do not need to hit its IN dot.
+- Click an output port. It grows a ring. Then click the target block.
+
+To remove a connection, click the output port that it leaves from. To cancel a
+port that waits for a target, click that port again, or click the empty canvas.
+
+Drag the canvas to pan it. Use the wheel to zoom. The ⤢ button fits the whole
+flow on the screen.
+
 ## Edit a flow with an AI agent
 
 Give the agent [docs/LLM-GUIDE.md](docs/LLM-GUIDE.md). With that guide, an agent can
@@ -312,6 +329,15 @@ Three rules keep this safe:
 The most useful bug report has the `.flo` file that caused the fault. A file that
 fails to load, or that does not round-trip, helps the most. Run
 `FLO_FIXTURES=... npm test` first. A file that fails that test is the bug.
+
+`npm test` does not open a browser, so it cannot test the canvas. `npm run test:ui`
+does. It needs a build and a Chromium binary:
+
+```bash
+npm install --no-save playwright-core
+npm run build
+npm run test:ui          # set CHROME=/path/to/chromium if it cannot find one
+```
 
 To support a new Automate release, read [docs/INTERNALS.md](docs/INTERNALS.md). The
 short version: run the generators again, read the schema diff, and check that the

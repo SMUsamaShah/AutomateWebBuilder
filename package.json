@@ -16,7 +16,8 @@
     "build:all": "npm run build && npm run build:single",
     "lint": "tsx tools/lint-flow.ts",
     "audit": "tsx tools/audit-corpus.ts",
-    "docs:stats": "tsx tools/generate-stats.ts"
+    "docs:stats": "tsx tools/generate-stats.ts",
+    "test:ui": "tsx tests/browser/connect.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

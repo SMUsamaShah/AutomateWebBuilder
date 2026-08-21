@@ -8,7 +8,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BLOCK_H, BLOCK_W, CELL, BlockView } from './BlockView';
-import { outputPorts } from '../flo/blocks';
+import { hasInputPort, outputPorts } from '../flo/blocks';
+import type { PortSide } from '../flo/blocks';
 import type { Block, BlockId, FlowModel } from '../flo/model';
 
 interface Props {
@@ -154,8 +155,23 @@ export function Canvas({
   const [panning, setPanning] = useState(false);
   const [armed, setArmed] = useState<{ id: BlockId; port: string } | null>(null);
 
+  const [linkTo, setLinkTo] = useState<Point | null>(null);
+
   const pan = useRef<{ px: number; py: number; vx: number; vy: number } | null>(null);
   const drag = useRef<{ id: BlockId; px: number; py: number; ox: number; oy: number } | null>(null);
+  /**
+   * A press on an output port, before we know whether it is a click or a drag.
+   * `moved` decides: a drag connects to whatever it lands on, a click arms the
+   * port and waits for a second click on the target.
+   */
+  const link = useRef<{
+    id: BlockId;
+    port: string;
+    side: PortSide;
+    px: number;
+    py: number;
+    moved: boolean;
+  } | null>(null);
 
   const byId = useMemo(() => {
     const m = new Map<BlockId, Block>();
@@ -218,7 +234,16 @@ export function Canvas({
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
 
+  /** Past this many screen pixels, a press on a port is a drag, not a click. */
+  const SLOP = 4;
+
   const onPointerMove = (e: React.PointerEvent) => {
+    if (link.current) {
+      const l = link.current;
+      if (Math.hypot(e.clientX - l.px, e.clientY - l.py) > SLOP) l.moved = true;
+      if (l.moved) setLinkTo(toWorld(e.clientX, e.clientY));
+      return;
+    }
     if (drag.current) {
       const d = drag.current;
       const dx = (e.clientX - d.px) / view.scale;
@@ -237,7 +262,44 @@ export function Canvas({
     }
   };
 
+  /** Arm a port, disarm it, or clear the connection it already has. */
+  const togglePort = (id: BlockId, field: string) => {
+    if (armed && armed.id === id && armed.port === field) {
+      setArmed(null);
+      return;
+    }
+    const existing = model.connections.find((c) => c.from === id && c.port === field);
+    if (existing && !armed) {
+      onDisconnect(id, field);
+      return;
+    }
+    setArmed({ id, port: field });
+  };
+
+  /** The block under the pointer, if it can accept a connection. */
+  const dropTarget = (clientX: number, clientY: number, from: BlockId): BlockId | null => {
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const id = el?.closest<HTMLElement>('.block')?.dataset.blockId;
+    if (!id || id === from) return null;
+    const block = byId.get(id);
+    return block && hasInputPort(block.typeId) ? id : null;
+  };
+
   const endGesture = (e: React.PointerEvent) => {
+    if (link.current) {
+      const l = link.current;
+      link.current = null;
+      setLinkTo(null);
+      if (l.moved) {
+        // Land anywhere on the target block, not only on its IN dot, which is
+        // eight pixels across and lands under the pointer only by luck.
+        const to = dropTarget(e.clientX, e.clientY, l.id);
+        if (to) onConnect(l.id, l.port, to);
+        setArmed(null);
+      } else {
+        togglePort(l.id, l.port);
+      }
+    }
     drag.current = null;
     pan.current = null;
     setPanning(false);
@@ -261,6 +323,16 @@ export function Canvas({
 
   const onBlockPointerDown = (e: React.PointerEvent, block: Block) => {
     e.stopPropagation();
+
+    // A port is waiting for a target, and this block can be one. Take the
+    // press as the answer rather than starting a drag.
+    if (armed && armed.id !== block.id && hasInputPort(block.typeId)) {
+      onConnect(armed.id, armed.port, block.id);
+      setArmed(null);
+      onSelect(block.id);
+      return;
+    }
+
     onSelect(block.id);
     drag.current = {
       id: block.id,
@@ -272,26 +344,18 @@ export function Canvas({
     (e.currentTarget.closest('.canvas') as HTMLElement)?.setPointerCapture(e.pointerId);
   };
 
-  const onPortClick = (e: React.MouseEvent, block: Block, field: string) => {
+  const onPortPointerDown = (
+    e: React.PointerEvent,
+    block: Block,
+    field: string,
+    side: PortSide,
+  ) => {
+    // Without this the block's own handler runs, starts a drag and captures
+    // the pointer — which retargets the click away from the port entirely.
     e.stopPropagation();
-    if (armed && armed.id === block.id && armed.port === field) {
-      setArmed(null);
-      return;
-    }
-    // Clicking an already-connected port clears it; otherwise arm it.
-    const existing = model.connections.find((c) => c.from === block.id && c.port === field);
-    if (existing && !armed) {
-      onDisconnect(block.id, field);
-      return;
-    }
-    setArmed({ id: block.id, port: field });
-  };
-
-  const onInputClick = (e: React.MouseEvent, block: Block) => {
-    e.stopPropagation();
-    if (!armed) return;
-    if (armed.id !== block.id) onConnect(armed.id, armed.port, block.id);
-    setArmed(null);
+    onSelect(block.id);
+    link.current = { id: block.id, port: field, side, px: e.clientX, py: e.clientY, moved: false };
+    (e.currentTarget.closest('.canvas') as HTMLElement)?.setPointerCapture(e.pointerId);
   };
 
   const onDrop = (e: React.DragEvent) => {
@@ -322,10 +386,21 @@ export function Canvas({
     return out;
   }, [model.connections, byId]);
 
+  /** The line that follows the pointer while a connection is being dragged. */
+  const liveEdge = useMemo(() => {
+    const l = link.current;
+    if (!l || !linkTo) return null;
+    const from = byId.get(l.id);
+    if (!from) return null;
+    const spec = outputPorts(from.typeId).find((p) => p.field === l.port);
+    if (!spec) return null;
+    return { d: edgePath(portPoint(from, spec.side), spec.side, linkTo), color: spec.color };
+  }, [linkTo, byId]);
+
   return (
     <div
       ref={hostRef}
-      className={`canvas${panning ? ' panning' : ''}`}
+      className={`canvas${panning ? ' panning' : ''}${linkTo ? ' linking' : ''}`}
       style={{ backgroundSize: `${CELL * view.scale}px ${CELL * view.scale}px`,
                backgroundPosition: `${view.x}px ${view.y}px` }}
       onPointerDown={onCanvasPointerDown}
@@ -344,6 +419,15 @@ export function Canvas({
           {edges.map((e) => (
             <path key={e.key} d={e.d} fill="none" stroke={e.color} strokeWidth={3} />
           ))}
+          {liveEdge && (
+            <path
+              d={liveEdge.d}
+              fill="none"
+              stroke={liveEdge.color}
+              strokeWidth={3}
+              strokeDasharray="6 4"
+            />
+          )}
         </svg>
 
         {model.blocks.map((b) => (
@@ -354,8 +438,7 @@ export function Canvas({
             issue={issues?.get(b.id) ?? null}
             armedPort={armed?.id === b.id ? armed.port : null}
             onPointerDown={onBlockPointerDown}
-            onPortClick={onPortClick}
-            onInputClick={onInputClick}
+            onPortPointerDown={onPortPointerDown}
           />
         ))}
       </div>

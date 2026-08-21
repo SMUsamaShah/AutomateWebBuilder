@@ -371,6 +371,12 @@ body.resizing {
   box-shadow: 0 0 0 3px rgba(33, 138, 230, 0.5);
 }
 
+/* While a connection is being dragged, every block is a possible target. */
+.canvas.linking .block,
+.canvas.linking .block * {
+  cursor: crosshair;
+}
+
 /* --------------------------------------------------------------- inspector */
 
 .field {

@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { describeBlock, hasInputPort, outputPorts, COLORS } from '../flo/blocks';
+import type { PortSide } from '../flo/blocks';
 import { initials, useIconFont } from './iconFont';
 import type { Block } from '../flo/model';
 
@@ -23,8 +24,19 @@ interface Props {
   /** Port currently armed for connecting, if it belongs to this block. */
   armedPort: string | null;
   onPointerDown: (e: React.PointerEvent, block: Block) => void;
-  onPortClick: (e: React.MouseEvent, block: Block, field: string) => void;
-  onInputClick: (e: React.MouseEvent, block: Block) => void;
+  /**
+   * Pressing an output port. This has to be a pointer event, not a click.
+   *
+   * The block starts a drag on pointerdown and captures the pointer, and a
+   * captured pointer retargets the click to the capture container — so a
+   * click handler on the port never runs.
+   */
+  onPortPointerDown: (
+    e: React.PointerEvent,
+    block: Block,
+    field: string,
+    side: PortSide,
+  ) => void;
 }
 
 function BlockViewImpl({
@@ -33,8 +45,7 @@ function BlockViewImpl({
   issue = null,
   armedPort,
   onPointerDown,
-  onPortClick,
-  onInputClick,
+  onPortPointerDown,
 }: Props) {
   const entry = block.entry;
   const caption = describeBlock(block.raw, entry);
@@ -44,6 +55,7 @@ function BlockViewImpl({
   return (
     <div
       className={`block${selected ? ' selected' : ''}`}
+      data-block-id={block.id}
       style={{ left: block.x * CELL, top: block.y * CELL }}
       onPointerDown={(e) => onPointerDown(e, block)}
       title={`#${block.id} ${entry?.title ?? ''}\n${entry?.summary ?? ''}`}
@@ -60,12 +72,9 @@ function BlockViewImpl({
       <span className="caption">{caption}</span>
 
       {hasInputPort(block.typeId) && (
-        <span
-          className="port top"
-          style={{ background: COLORS.blue }}
-          onClick={(e) => onInputClick(e, block)}
-          title="IN"
-        >
+        // No handler of its own: a press anywhere on the block, this dot
+        // included, finishes a connection that is waiting for a target.
+        <span className="port top" style={{ background: COLORS.blue }} title="IN">
           IN
         </span>
       )}
@@ -75,8 +84,8 @@ function BlockViewImpl({
           key={p.field}
           className={`port ${p.side}${armedPort === p.field ? ' armed' : ''}`}
           style={{ background: p.color }}
-          onClick={(e) => onPortClick(e, block, p.field)}
-          title={`${p.label} — click, then click a target block's IN`}
+          onPointerDown={(e) => onPortPointerDown(e, block, p.field, p.side)}
+          title={`${p.label} — drag to a block, or click here then click a block`}
         >
           {p.label}
         </span>
