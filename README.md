@@ -137,8 +137,12 @@ it. The panel on the right shows its arguments.
 To connect two blocks, do one of these:
 
 - Press an output port (OK, YES, NO, FAIL, DO or NEW) and drag to the target
-  block. Drop anywhere on that block. You do not need to hit its IN dot.
+  block. Drop anywhere on that block, or a little outside it. You do not need to
+  hit its IN dot.
 - Click an output port. It grows a ring. Then click the target block.
+
+A drop that lands too far from a block does not throw the gesture away. The port
+keeps its ring, so you can click the target to finish.
 
 To remove a connection, click the output port that it leaves from. To cancel a
 port that waits for a target, click that port again, or click the empty canvas.

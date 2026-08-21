@@ -56,8 +56,8 @@ page.on('pageerror', (e) => {
 });
 
 const edges = () => page.locator('svg.edges path:not([stroke-dasharray])').count();
-const blk = (n) =>
-  page.locator('.block', { has: page.locator('.badge', { hasText: new RegExp(`^${n}$`) }) });
+const blk = (n) => page.locator(`.block[data-block-id="${n}"]`);
+const armedPorts = () => page.locator('.port.armed').count();
 
 async function reload() {
   await page.goto(`http://127.0.0.1:${PORT}/index.html`);
@@ -66,13 +66,22 @@ async function reload() {
 }
 
 async function dragTo(src, dst) {
-  const a = await src.boundingBox();
   const b = await dst.boundingBox();
+  await dragToPoint(src, b.x + b.width / 2, b.y + b.height / 2);
+}
+
+async function dragToPoint(src, x, y) {
+  const a = await src.boundingBox();
   await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
   await page.mouse.down();
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+  await page.mouse.move(x, y, { steps: 12 });
   await page.mouse.up();
   await page.waitForTimeout(150);
+}
+
+async function zoomOut(times) {
+  for (let i = 0; i < times; i++) await page.locator('.zoom button[title="Zoom out"]').click();
+  await page.waitForTimeout(120);
 }
 
 try {
@@ -136,10 +145,44 @@ try {
   await page.waitForTimeout(100);
   check('live line gone after drop', await page.locator('svg.edges path[stroke-dasharray]').count(), 0);
 
+  // Dropping is measured against block rectangles, not by asking the browser
+  // what is under the pointer. Zoomed out, a block is a dozen pixels across and
+  // a drop that looks on target lands on the canvas behind it.
+  for (const clicks of [0, 4, 8]) {
+    await reload();
+    await zoomOut(clicks);
+    const zoom = await page.locator('.zoom .level').textContent();
+    const box = await blk(3).boundingBox();
+    console.log(`\nat ${zoom} zoom the target is ${Math.round(box.width)}px wide`);
+    await dragToPoint(blk(2).locator('.port.bottom'), box.x + box.width / 2, box.y + box.height / 2);
+    check('drop on the centre connects', await edges(), 1);
+
+    await reload();
+    await zoomOut(clicks);
+    const b2 = await blk(3).boundingBox();
+    await dragToPoint(blk(2).locator('.port.bottom'), b2.x + b2.width / 2, b2.y + b2.height + 14);
+    check('drop just below the block connects', await edges(), 1);
+  }
+
+  console.log('\na drop far from any block keeps the port armed');
+  await reload();
+  const canvas = await page.locator('.canvas').boundingBox();
+  await dragToPoint(
+    blk(2).locator('.port.bottom'),
+    canvas.x + canvas.width - 60,
+    canvas.y + canvas.height - 60,
+  );
+  check('no edge', await edges(), 0);
+  check('port still armed', await armedPorts(), 1);
+  await blk(3).click();
+  await page.waitForTimeout(150);
+  check('clicking the target finishes it', await edges(), 1);
+
   console.log('\na block with no IN port refuses a connection');
   await reload();
   check('flow beginning has no IN dot', await blk(1).locator('.port.top').count(), 0);
   await dragTo(blk(2).locator('.port.bottom'), blk(1));
+  // And it does not snap past that block to a valid one nearby.
   check('no edge', await edges(), 0);
 } finally {
   await browser.close();

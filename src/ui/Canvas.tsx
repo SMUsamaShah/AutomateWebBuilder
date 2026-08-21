@@ -236,6 +236,8 @@ export function Canvas({
 
   /** Past this many screen pixels, a press on a port is a drag, not a click. */
   const SLOP = 4;
+  /** How far outside a block a drop still counts, measured on screen. */
+  const SNAP_PX = 28;
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (link.current) {
@@ -276,13 +278,43 @@ export function Canvas({
     setArmed({ id, port: field });
   };
 
-  /** The block under the pointer, if it can accept a connection. */
-  const dropTarget = (clientX: number, clientY: number, from: BlockId): BlockId | null => {
-    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
-    const id = el?.closest<HTMLElement>('.block')?.dataset.blockId;
-    if (!id || id === from) return null;
-    const block = byId.get(id);
-    return block && hasInputPort(block.typeId) ? id : null;
+  /**
+   * The block a drop lands on, from the geometry rather than from the DOM.
+   *
+   * `document.elementFromPoint` was the obvious way to do this and it is the
+   * wrong one: it depends on what the browser decides is on top, and it demands
+   * that the pointer be inside the block to the pixel. Zoomed out to fit a big
+   * flow, a block is a dozen screen pixels across, so a drop that looks on
+   * target misses. Blocks are plain rectangles on a grid, so measure instead.
+   */
+  const dropTarget = (world: Point, from: BlockId): BlockId | null => {
+    const accepts = (b: Block) => b.id !== from && hasInputPort(b.typeId);
+
+    // Distance from the point to a block's rectangle; 0 means inside it.
+    const gap = (b: Block) => {
+      const x = b.x * CELL;
+      const y = b.y * CELL;
+      return Math.hypot(
+        Math.max(x - world.x, 0, world.x - (x + BLOCK_W)),
+        Math.max(y - world.y, 0, world.y - (y + BLOCK_H)),
+      );
+    };
+
+    // Inside a block decides it, even when that block cannot be a target.
+    // Snapping past it to a neighbour would connect somewhere unasked for.
+    const inside = model.blocks.find((b) => gap(b) === 0);
+    if (inside) return accepts(inside) ? inside.id : null;
+
+    // Otherwise take the nearest block, within a fixed distance on screen so
+    // the reach feels the same at every zoom level.
+    const reach = SNAP_PX / view.scale;
+    let best: { id: BlockId; d: number } | null = null;
+    for (const b of model.blocks) {
+      if (!accepts(b)) continue;
+      const d = gap(b);
+      if (d <= reach && (!best || d < best.d)) best = { id: b.id, d };
+    }
+    return best?.id ?? null;
   };
 
   const endGesture = (e: React.PointerEvent) => {
@@ -291,11 +323,15 @@ export function Canvas({
       link.current = null;
       setLinkTo(null);
       if (l.moved) {
-        // Land anywhere on the target block, not only on its IN dot, which is
-        // eight pixels across and lands under the pointer only by luck.
-        const to = dropTarget(e.clientX, e.clientY, l.id);
-        if (to) onConnect(l.id, l.port, to);
-        setArmed(null);
+        const to = dropTarget(toWorld(e.clientX, e.clientY), l.id);
+        if (to) {
+          onConnect(l.id, l.port, to);
+          setArmed(null);
+        } else {
+          // A miss leaves the port armed rather than throwing the gesture
+          // away. The ring stays on, and a click on the target finishes it.
+          setArmed({ id: l.id, port: l.port });
+        }
       } else {
         togglePort(l.id, l.port);
       }
