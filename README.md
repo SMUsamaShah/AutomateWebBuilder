@@ -93,13 +93,14 @@ Run `npm run build`. It writes plain HTML, JavaScript and CSS into `dist/`. Put 
 folder on GitHub Pages, on Netlify, or on any web server. There is no server
 program.
 
-`.github/workflows/ci.yml` runs on each push. It checks the types, runs the tests
-and builds the site. It then uploads the result as a workflow artifact. Push a `v*`
-tag, and `.github/workflows/release.yml` publishes a GitHub release. That release
-holds the single HTML file and a zip of the static site.
+This project publishes its own site that way. `.github/workflows/pages.yml` runs on
+each push. It checks the types, runs the tests and builds both editions. A push to
+the default branch then deploys to GitHub Pages. A push to any other branch, and
+every pull request, stops after the checks.
 
-This project does not use GitHub Pages, because Pages does not work on a private
-repository. `ci.yml` records how to turn Pages on again.
+`.github/workflows/ci.yml` runs the same checks and keeps the result as a workflow
+artifact. Push a `v*` tag, and `.github/workflows/release.yml` publishes a GitHub
+release. That release holds the single HTML file and a zip of the static site.
 
 ### 3. Development
 
