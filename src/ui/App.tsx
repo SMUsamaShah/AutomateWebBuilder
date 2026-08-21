@@ -40,6 +40,16 @@ function download(name: string, data: Uint8Array | string, type: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+/**
+ * Grid cells between blocks stacked by the palette, matching the spacing the
+ * guide uses.
+ *
+ * A block is 3 cells tall, so a step of 3 leaves no gap at all: the new block's
+ * IN dot lands exactly on the previous block's OK dot, and the connector you
+ * need to drag a wire from is buried under one that does nothing.
+ */
+const STACK_STEP = 6;
+
 export function App() {
   const [doc, setDoc] = useState<Doc>(() => ({ model: emptyModel(), name: 'New flow', rev: 0, docId: 1 }));
   const [selected, setSelected] = useState<BlockId | null>(null);
@@ -107,7 +117,7 @@ export function App() {
   const addBlock = (typeId: number, x?: number, y?: number) => {
     const model = doc.model;
     const nx = x ?? 4;
-    const ny = y ?? Math.max(0, ...model.blocks.map((b) => b.y + 3));
+    const ny = y ?? Math.max(0, ...model.blocks.map((b) => b.y + STACK_STEP));
     const block = createBlock(model, typeId, nx, ny);
     setSelected(block.id);
     touch();
@@ -212,6 +222,7 @@ export function App() {
         <Canvas
           key={doc.docId}
           model={doc.model}
+          rev={doc.rev}
           selected={selected}
           issues={lint.severityByBlock}
           onSelect={setSelected}

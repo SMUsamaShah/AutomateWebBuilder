@@ -352,19 +352,32 @@ body.resizing {
   border: 2px solid var(--bg);
 }
 
+/* Every dot hangs half outside its block, so a dot always overlaps whatever
+   block sits next to it, and on a tight layout an OK dot and the IN dot below
+   it land on the same pixels. Blocks paint in document order, so without a
+   z-index the lower block wins and its IN dot swallows the press — the wire
+   never starts and the block drags instead. Lifting the dots above the block
+   bodies, and output dots above input dots, makes the dot you can actually
+   pull a wire from the one that gets the press.
+
+   `.world` is transformed and so is the stacking context these compete in;
+   blocks themselves are `z-index: auto`, so they do not trap these values. */
 .port.top {
   top: calc(var(--port) / -2);
   left: calc(50% - var(--port) / 2);
+  z-index: 1;
 }
 
 .port.bottom {
   bottom: calc(var(--port) / -2);
   left: calc(50% - var(--port) / 2);
+  z-index: 2;
 }
 
 .port.right {
   right: calc(var(--port) / -2);
   top: calc(50% - var(--port) / 2);
+  z-index: 2;
 }
 
 .port.armed {

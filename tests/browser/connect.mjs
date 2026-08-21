@@ -42,6 +42,15 @@ createBlock(model, 1046, 0, 12);
 const flowJson = join(dir, 'two.json');
 writeFileSync(flowJson, JSON.stringify(toJsonFlow(model)));
 
+// The same flow with the blocks flush against each other. A block is 3 cells
+// tall, so at a 3-cell step there is no gap at all: each IN dot lands on the
+// block above it and on that block's own output dot.
+const tight = emptyModel();
+createBlock(tight, 1046, 4, 3);
+createBlock(tight, 1046, 4, 6);
+const tightJson = join(dir, 'tight.json');
+writeFileSync(tightJson, JSON.stringify(toJsonFlow(tight)));
+
 const server = spawn('python3', ['-m', 'http.server', String(PORT)], {
   cwd: join(ROOT, 'dist'),
   stdio: 'ignore',
@@ -59,15 +68,24 @@ const edges = () => page.locator('svg.edges path:not([stroke-dasharray])').count
 const blk = (n) => page.locator(`.block[data-block-id="${n}"]`);
 const armedPorts = () => page.locator('.port.armed').count();
 
-async function reload() {
+async function reload(flow = flowJson) {
   await page.goto(`http://127.0.0.1:${PORT}/index.html`);
-  await page.setInputFiles('input[type=file][accept*=json]', flowJson);
+  await page.setInputFiles('input[type=file][accept*=json]', flow);
   await page.waitForTimeout(300);
 }
 
+/** A fresh flow with blocks added the way a user adds them: from the palette. */
+async function fromPalette(search, times) {
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`);
+  await page.fill('.search', search);
+  for (let i = 0; i < times; i++) await page.locator('.palette-item').first().click();
+  await page.waitForTimeout(300);
+}
+
+const centre = (b) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
+
 async function dragTo(src, dst) {
-  const b = await dst.boundingBox();
-  await dragToPoint(src, b.x + b.width / 2, b.y + b.height / 2);
+  await dragToPoint(src, ...Object.values(centre(await dst.boundingBox())));
 }
 
 async function dragToPoint(src, x, y) {
@@ -78,6 +96,30 @@ async function dragToPoint(src, x, y) {
   await page.mouse.up();
   await page.waitForTimeout(150);
 }
+
+/**
+ * Drag out to one point and release on another.
+ *
+ * Needed where the source dot and the target dot are at the same place: going
+ * straight there is no movement at all, so it reads as a click.
+ */
+async function dragVia(src, mid, dst) {
+  const a = await src.boundingBox();
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(mid.x, mid.y, { steps: 8 });
+  await page.mouse.move(dst.x, dst.y, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+}
+
+/** What the browser would hand a press at this point, as `block/class`. */
+const hitAt = (x, y) =>
+  page.evaluate(([px, py]) => {
+    const el = document.elementFromPoint(px, py);
+    if (!el) return 'none';
+    return `${el.closest('.block')?.dataset.blockId ?? '-'}/${el.className}`;
+  }, [x, y]);
 
 async function zoomOut(times) {
   for (let i = 0; i < times; i++) await page.locator('.zoom button[title="Zoom out"]').click();
@@ -184,6 +226,58 @@ try {
   await dragTo(blk(2).locator('.port.bottom'), blk(1));
   // And it does not snap past that block to a valid one nearby.
   check('no edge', await edges(), 0);
+
+  // The model is mutated in place, so a block added after the flow was opened
+  // does not change the identity of `model.blocks`. Anything the canvas
+  // memoises against that array therefore keeps answering with the flow as it
+  // was loaded, and a wire to a block the user just added is never drawn.
+  console.log('\nblocks added from the palette can be wired up');
+  await fromPalette('delay', 2);
+  check('three blocks', await page.locator('.block').count(), 3);
+  await dragTo(blk(1).locator('.port.bottom'), blk(2));
+  check('edge drawn', await edges(), 1);
+  await dragTo(blk(2).locator('.port.bottom'), blk(3));
+  check('second edge drawn', await edges(), 2);
+
+  // A 3-cell step would leave no gap: the new block's IN dot would land on the
+  // previous block's output dot, and the dot you drag a wire from would be
+  // buried under one that does nothing.
+  console.log('\npalette blocks are spaced so their connectors do not collide');
+  await fromPalette('delay', 2);
+  for (const n of [1, 2]) {
+    const dot = centre(await blk(n).locator('.port.bottom').boundingBox());
+    check(`block ${n}'s own output dot takes the press`, await hitAt(dot.x, dot.y), `${n}/port bottom`);
+  }
+
+  console.log('\nwires follow a block being dragged');
+  await fromPalette('delay', 2);
+  await dragTo(blk(1).locator('.port.bottom'), blk(2));
+  const drawn = async () =>
+    (await edges()) ? page.locator('svg.edges path').first().getAttribute('d') : null;
+  const wasAt = await drawn();
+  check('there is a wire to redraw', wasAt !== null, true);
+  const target = await blk(2).boundingBox();
+  await page.mouse.move(...Object.values(centre(target)));
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width / 2 + 200, target.y + target.height / 2, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(150);
+  check('the wire was redrawn', (await drawn()) !== wasAt, true);
+
+  // An IN dot hangs half outside its block, above the top edge, so on a tight
+  // layout it sits on top of the block above — usually the very block the wire
+  // is coming from. Measuring the drop against rectangles alone hands it to
+  // that block, which cannot accept its own wire, and the drop does nothing.
+  console.log('\nreleasing on an IN dot that overlaps the source block connects');
+  await reload(tightJson);
+  const inDot = centre(await blk(2).locator('.port.top').boundingBox());
+  const goDot = centre(await blk(1).locator('.port.bottom').boundingBox());
+  check('the two dots really do coincide', [Math.round(inDot.x), Math.round(inDot.y)],
+    [Math.round(goDot.x), Math.round(goDot.y)]);
+  check('the output dot takes the press', await hitAt(goDot.x, goDot.y), '1/port bottom');
+  await dragVia(blk(1).locator('.port.bottom'), { x: goDot.x + 220, y: goDot.y + 40 }, inDot);
+  check('edge created', await edges(), 1);
+  check('nothing left armed', await armedPorts(), 0);
 } finally {
   await browser.close();
   server.kill();

@@ -14,6 +14,16 @@ import type { Block, BlockId, FlowModel } from '../flo/model';
 
 interface Props {
   model: FlowModel;
+  /**
+   * The owner's edit counter, bumped on every change to `model`.
+   *
+   * The model is mutated in place — `createBlock` pushes into the existing
+   * `blocks` array, moving a block writes `x`/`y` on the block itself — so no
+   * array or object identity here changes when the flow does. Anything derived
+   * from the model has to key off this instead, or it silently serves the
+   * flow as it was when the file was opened.
+   */
+  rev: number;
   selected: BlockId | null;
   /** Block id -> worst finding severity, for the corner marker. */
   issues?: Map<BlockId, 'error' | 'warning'>;
@@ -142,6 +152,7 @@ function edgePath(from: Point, side: 'top' | 'bottom' | 'right', to: Point): str
 
 export function Canvas({
   model,
+  rev,
   selected,
   issues,
   onSelect,
@@ -177,7 +188,7 @@ export function Canvas({
     const m = new Map<BlockId, Block>();
     for (const b of model.blocks) m.set(b.id, b);
     return m;
-  }, [model.blocks]);
+  }, [model, rev]);
 
   /** Fit all blocks in view. */
   const fit = useCallback(() => {
@@ -201,7 +212,7 @@ export function Canvas({
       ),
     );
     setView({ x: pad - minX * scale, y: pad - minY * scale, scale });
-  }, [model.blocks]);
+  }, [model, rev]);
 
   // Fit once when a flow is mounted. Editing must not disturb the user's view,
   // so this deliberately does not re-run as blocks move or get added.
@@ -238,6 +249,8 @@ export function Canvas({
   const SLOP = 4;
   /** How far outside a block a drop still counts, measured on screen. */
   const SNAP_PX = 28;
+  /** Radius of a connector dot in world units; matches `--port` in the stylesheet. */
+  const PORT_R = 11;
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (link.current) {
@@ -300,9 +313,25 @@ export function Canvas({
       );
     };
 
+    // The IN dot hangs half outside its block, above the top edge, so on a
+    // tight layout it sits on the block above — very often the one the wire is
+    // being dragged from. Aiming at a connector is unambiguous, so it decides
+    // the drop before any rectangle gets a say. Without this, letting go on the
+    // dot the user was aiming at does nothing at all.
+    let onPort: { id: BlockId; d: number } | null = null;
+    for (const b of model.blocks) {
+      if (!accepts(b)) continue;
+      const p = portPoint(b, 'top');
+      const d = Math.hypot(p.x - world.x, p.y - world.y);
+      if (d <= PORT_R && (!onPort || d < onPort.d)) onPort = { id: b.id, d };
+    }
+    if (onPort) return onPort.id;
+
     // Inside a block decides it, even when that block cannot be a target.
     // Snapping past it to a neighbour would connect somewhere unasked for.
-    const inside = model.blocks.find((b) => gap(b) === 0);
+    // Blocks may overlap, so answer with the one drawn on top — the last one.
+    let inside: Block | null = null;
+    for (const b of model.blocks) if (gap(b) === 0) inside = b;
     if (inside) return accepts(inside) ? inside.id : null;
 
     // Otherwise take the nearest block, within a fixed distance on screen so
@@ -420,7 +449,7 @@ export function Canvas({
       });
     }
     return out;
-  }, [model.connections, byId]);
+  }, [model, rev, byId]);
 
   /** The line that follows the pointer while a connection is being dragged. */
   const liveEdge = useMemo(() => {
