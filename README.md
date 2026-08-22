@@ -14,6 +14,9 @@ screen. It also writes the flow as JSON, which you can give to an AI agent.
 > This project is not official. LlamaLab did not make it. It reads and writes the
 > `.flo` format. It does not run flows.
 
+**Use it now: [xosh.org/AutomateWebBuilder](https://xosh.org/AutomateWebBuilder/)**
+— nothing to install. Your flows stay in your browser. Nothing is uploaded.
+
 ## What it does
 
 - Opens and saves `.flo` files. The format code comes from the app's own read and
